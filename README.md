@@ -19,8 +19,6 @@ Hecho en HTML + JavaScript puro: no necesita instalar ni compilar nada.
 
 En combate, menús, tiendas y minijuegos todo se toca directamente. Opciones móviles (vibración, correr con el joystick, pantalla completa, tamaño de botones) en *Menú → Opciones*.
 
-## Estructura
-- `engine/` motor (escenas, combate, diálogos, móvil…)
-- `data/` historia, mapas, misiones y objetos
-- `sprites/` personajes, retratos y bestiario
+## Archivos
+- `index.html` el juego completo en un solo archivo
 - `manifest.webmanifest`, `sw.js`, `icon-*.png` app instalable / sin conexión
