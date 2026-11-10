@@ -5892,6 +5892,7 @@ void main(){
         { label: 'Margen del timing', value: TH.settings.lab(TH.settings.TIMINGS, TH.settings.timing), act: () => TH.settings.cyc('timing', TH.settings.TIMINGS) },
         { label: 'Botones táctiles', value: TH.settings.lab(TH.settings.TOUCH, TH.settings.touch), act: () => TH.settings.cyc('touch', TH.settings.TOUCH) },
         ...(document.documentElement.classList.contains('mob') ? [
+          { label: 'Mando en pantalla', value: TH.settings.ctrl === 'clasico' ? 'Clásico (cruceta + A/B)' : 'Táctil (joystick)', act: () => TH.setCtrl(TH.settings.ctrl === 'clasico' ? 'tactil' : 'clasico') },
           { label: 'Vibración', value: TH.settings.vib ? 'Sí' : 'No', act: () => { TH.settings.vib = !TH.settings.vib; TH.settings.saveMob(); TH.haptic && TH.haptic(20); } },
           { label: 'Correr empujando el joystick', value: TH.settings.autorun ? 'Sí' : 'No', act: () => { TH.settings.autorun = !TH.settings.autorun; TH.settings.saveMob(); } },
           { label: 'Pantalla completa', value: document.fullscreenElement ? 'Sí' : 'No', act: () => { const on = !document.fullscreenElement; TH.settings.fs = on; TH.settings.saveMob(); TH.fullscreen(on); } },
@@ -19834,9 +19835,9 @@ void main(){
 
   // ---------- ajustes propios del móvil ----------
   const KEY = 'thalyria.movil.v1';
-  S.vib = true; S.autorun = true; S.fs = true;
-  try { const o = JSON.parse(localStorage.getItem(KEY) || '{}'); for (const k of ['vib', 'autorun', 'fs']) if (typeof o[k] === 'boolean') S[k] = o[k]; } catch (e) { /* sin almacenamiento */ }
-  S.saveMob = () => { try { localStorage.setItem(KEY, JSON.stringify({ vib: S.vib, autorun: S.autorun, fs: S.fs })); } catch (e) { /* sin almacenamiento */ } };
+  S.vib = true; S.autorun = true; S.fs = true; S.ctrl = 'clasico';
+  try { const o = JSON.parse(localStorage.getItem(KEY) || '{}'); for (const k of ['vib', 'autorun', 'fs']) if (typeof o[k] === 'boolean') S[k] = o[k]; if (o.ctrl === 'tactil' || o.ctrl === 'clasico') S.ctrl = o.ctrl; } catch (e) { /* sin almacenamiento */ }
+  S.saveMob = () => { try { localStorage.setItem(KEY, JSON.stringify({ vib: S.vib, autorun: S.autorun, fs: S.fs, ctrl: S.ctrl })); } catch (e) { /* sin almacenamiento */ } };
 
   const coarse = matchMedia('(pointer:coarse)');
   const isMob = () => coarse.matches || (navigator.maxTouchPoints > 0 && matchMedia('(hover:none)').matches);
@@ -19844,6 +19845,7 @@ void main(){
     root.classList.toggle('mob', isMob());
     root.classList.toggle('land', innerWidth > innerHeight);
     root.classList.toggle('short', innerHeight < 520);
+    root.classList.toggle('pad-c', S.ctrl === 'clasico');
     restStick();
     rotCheck();
   };
@@ -19857,7 +19859,15 @@ void main(){
 
   // ---------- modo de juego (paseo / resto) ----------
   const setPad0 = I.setPadMode.bind(I);
-  I.setPadMode = (dpad) => { root.classList.toggle('walk', !dpad); setPad0(dpad); };
+  // en modo clásico la cruceta está siempre (también al caminar)
+  I.setPadMode = (dpad) => { root.classList.toggle('walk', !dpad); setPad0(S.ctrl === 'clasico' ? true : dpad); };
+  TH.setCtrl = (m) => {
+    S.ctrl = m; S.saveMob(); I.dpad = undefined;
+    root.classList.toggle('pad-c', m === 'clasico');
+    setPad0(m === 'clasico' ? true : !root.classList.contains('walk'));
+    dispatchEvent(new Event('resize'));
+  };
+  document.querySelectorAll('.dp').forEach((el) => el.addEventListener('pointerdown', () => TH.haptic(5)));
 
   // ---------- joystick flotante (horizontal) ----------
   const stick = $('stick'), knob = $('knob');
@@ -19869,7 +19879,7 @@ void main(){
     stick.style.left = (Math.max(14, sl) + 70 * z) + 'px';
     stick.style.top = (innerHeight - 78 * z) + 'px';
   }
-  const liveMode = () => root.classList.contains('mob') && root.classList.contains('land') && root.classList.contains('walk');
+  const liveMode = () => S.ctrl !== 'clasico' && root.classList.contains('mob') && root.classList.contains('land') && root.classList.contains('walk');
   document.addEventListener('pointerdown', (e) => {
     if (!liveMode() || sid !== null) return;
     if (TH.res && TH.res.wheel) return; // la rueda de Resonancias se elige tocándola
@@ -20015,6 +20025,17 @@ html.mob body{overscroll-behavior:none;-webkit-touch-callout:none;position:fixed
 .mob.land .res-btn{top:46px;bottom:auto}
 .mob.land #powBar{top:88px;bottom:auto}
 .mob.land .hint{display:none}
+
+/* ---- mando clásico: cruceta + A/B fijos a los lados, el juego encajado entre ellos ---- */
+.mob.land.pad-c .app{padding-left:calc(max(10px,env(safe-area-inset-left,0px)) + 136px*var(--touch,1));padding-right:calc(max(10px,env(safe-area-inset-right,0px)) + 136px*var(--touch,1))}
+.mob.land.pad-c .pad,.mob.land.pad-c:not(.walk) .pad{display:block}
+.mob.land.pad-c .stick{display:none!important}
+.mob.land.pad-c .pad .dpad{display:grid!important;position:fixed;left:max(10px,env(safe-area-inset-left,0px));bottom:max(18px,env(safe-area-inset-bottom,0px));pointer-events:auto}
+.mob.land.pad-c .btns{display:grid;grid-template-columns:auto auto;grid-template-areas:"sw a" "b a";gap:8px 10px;align-items:center;opacity:1;right:max(10px,env(safe-area-inset-right,0px));bottom:max(18px,env(safe-area-inset-bottom,0px))}
+.mob.land.pad-c #btnSwap{grid-area:sw;justify-self:center;align-self:end}
+.mob.land.pad-c #btnB{grid-area:b}
+.mob.land.pad-c #btnA{grid-area:a;margin:0}
+.mob.land.pad-c .res-btn{top:46px}
 /* título en pantallas bajas: logo a la izquierda, menú a la derecha */
 .mob.land.short .title{flex-direction:row;gap:5%}
 .mob.land.short .title .menu-list{max-height:78vh;width:min(300px,44%)}
