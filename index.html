@@ -7597,7 +7597,9 @@ void main(){
   const $ = (id) => document.getElementById(id);
   const ZOOM = 2;
   const PSLOT = [[-28, -14], [-48, 4], [-68, 22]];
-  const ESLOT = { 1: [[36, 4]], 2: [[30, -8], [48, 14]], 3: [[28, -14], [48, 4], [30, 22]] };
+  const ESLOT = { 1: [[36, 4]], 2: [[26, -8], [56, 12]], 3: [[22, -10], [60, -4], [36, 22]], 4: [[22, -10], [60, -8], [32, 22], [66, 22]] };
+  // en el móvil horizontal el grupo va algo más junto, para que el menú de órdenes no lo tape
+  const PSLOT_M = [[-28, -14], [-42, 4], [-56, 22]];
   const BOSS_SLOT = { karkinos: [66, -10], pinza_izq: [20, -4], pinza_der: [22, 22], madre: [66, 6], vigia_bronce: [68, 22], brazo_izq: [22, 6], brazo_der: [26, 38], varek: [44, 2], cronoguardia: [70, 22], aguja_izq: [22, 4], aguja_der: [26, 36], abisal: [64, 18], coloso: [68, 20], yunque_izq: [22, 4], yunque_der: [26, 36], coloso_guerra: [68, 20], puno_izq: [22, 4], puno_der: [26, 36], varek_abisal: [44, 2], abisal_eco: [64, 18], corazon: [72, 22], tentaculo_izq: [22, 6], tentaculo_der: [26, 36], leviatan: [76, 24], aleta_izq: [12, -8], aleta_der: [18, 34], zarpa_izq: [24, -2], zarpa_der: [26, 26] };
   // huecos para los esbirros que llama un jefe
   const BOSS_ADDS = [[0, 8], [44, 32], [40, -30]];
@@ -7682,7 +7684,9 @@ void main(){
       this.isBoss = this.group.some((k) => TH.data.enemies[k].boss);
       // jefes muy altos (Madre, Vigía…) piden menos zoom y la cámara un poco más arriba para verse enteros
       const BD = this.isBoss && this.bossE ? this.bossE.D : (this.group && TH.data.enemies[this.group[0]]) || {};
-      this.zoomT = this.isBoss ? (BD.zoom || ZOOM_BOSS) : ZOOM;
+      const RC = document.documentElement.classList, MOB = RC.contains('mob') && RC.contains('land');
+      // en el móvil horizontal, un poco menos de zoom para que quepan el grupo, los enemigos y los paneles
+      this.zoomT = (this.isBoss ? (BD.zoom || ZOOM_BOSS) : ZOOM) * (MOB ? 0.88 : 1);
       const bn = document.getElementById('banner'); if (bn) bn.classList.remove('show');
       const fx = foe ? foe.x : leader.x + 40, fy = foe ? foe.y : leader.y;
       this.center = this.findCenter((leader.x + fx) / 2 - (this.isBoss ? 30 : 0), (leader.y + fy) / 2);
@@ -7690,16 +7694,19 @@ void main(){
       const ids = m.members();
       this.active = ids.slice(0, 3).map((id, i) => this.unit(id, i));
       this.reserve = ids[3] ? this.unit(ids[3], 3) : null;
+      const PS = MOB ? PSLOT_M : PSLOT;
       this.active.forEach((u, i) => {
         const src = m.party[m.order.indexOf(u.id)] || leader;
-        u.x = retry ? C.x + PSLOT[i][0] : src.x; u.y = retry ? C.y + PSLOT[i][1] : src.y;
-        u.homeX = C.x + PSLOT[i][0]; u.homeY = C.y + PSLOT[i][1];
+        u.x = retry ? C.x + PS[i][0] : src.x; u.y = retry ? C.y + PS[i][1] : src.y;
+        u.homeX = C.x + PS[i][0]; u.homeY = C.y + PS[i][1];
       });
       if (this.reserve) { this.reserve.x = C.x - 90; this.reserve.y = C.y; this.reserve.hidden = true; }
-      const slots = ESLOT[Math.min(3, this.group.length)];
+      const slots = ESLOT[Math.min(4, this.group.length)];
       this.enemies = this.group.slice(0, 4).map((key, i) => {
         const bs = BOSS_SLOT[key] || BOSS_SLOT[key.replace(/_rev$/, '')], sl = bs || slots[i] || EPOS[i];
-        const e = this.makeEnemy(key, C.x + sl[0], C.y + sl[1], i);
+        // los voladores en los huecos de arriba bajan un poco para no salirse por el borde
+        const fl = !bs && TH.data.enemies[key].flying && sl[1] < 0 ? 12 : 0;
+        const e = this.makeEnemy(key, C.x + sl[0], C.y + sl[1] + fl, i);
         if (!retry && foe && !bs) { e.x = foe.x; e.y = foe.y; }
         return e;
       });
@@ -7710,7 +7717,10 @@ void main(){
       m.battle = this;
       for (const f of m.foes || []) if (f.alive && Math.hypot(f.x - C.x, f.y - C.y) < 140) f.hidden = true;
       this.camFrom = { x: TH.camera.x + W / 2, y: TH.camera.y + H / 2, z: m.zoom };
-      this.camTo = { x: C.x - 6 + (this.isBoss ? 18 : 0), y: C.y - map.levelAt(C.x, C.y) * HZ - (this.isBoss ? 14 + (BD.camY || 0) : 12) };
+      // en el móvil horizontal, la escena se corre a la derecha para dejar sitio al menú de órdenes
+      let mobShift = 0;
+      if (MOB) { const cv = document.getElementById('game'), k = cv ? cv.getBoundingClientRect().width / W : 1; mobShift = Math.min(30, 44 / (this.zoomT * (k || 1))); }
+      this.camTo = { x: C.x - 6 + (this.isBoss ? 18 : 0) - mobShift, y: C.y - map.levelAt(C.x, C.y) * HZ - (this.isBoss ? 14 + (BD.camY || 0) : 12) - (MOB ? 10 : 0) };
       this.seq = this.introSeq(retry);
       this.drawParty();
       this.help(this.advantage ? '¡Ventaja! Tu primera acción no da tiempo a los enemigos.' : '');
@@ -8045,7 +8055,7 @@ void main(){
     // los enemigos se recolocan entre rondas y tienden a agruparse
     *shuffleSeq() {
       const C = this.center, moves = [];
-      const free = (x, y, self) => this.enemies.every((o) => o === self || o.dead || Math.hypot(o.homeX - x, o.homeY - y) > 15);
+      const free = (x, y, self) => this.enemies.every((o) => o === self || o.dead || Math.hypot(o.homeX - x, o.homeY - y) > 24);
       for (const e of this.enemies) {
         if (e.dead || e.stunned || e.D.boss || e.guarding || Math.random() > 0.45) continue;
         if (e.D.part) { if (e.x !== e.homeX || e.y !== e.homeY) moves.push(this.moveTo(e, e.homeX, e.homeY, 0.3, true)); continue; }
@@ -8898,11 +8908,21 @@ void main(){
       }
       const L = this.active.concat(this.reserve && !this.reserve.hidden ? [this.reserve] : [], this.enemies).filter((u) => !u.hidden);
       L.sort((a, b) => a.y - b.y);
+      const tgt = this.state === 'target' ? this.targets()[this.target] : null;
+      const tgtOne = !!(tgt && tgt.side === 'enemy' && (!this.pending || !this.pending.area || this.pending.area === 'one'));
+      if (this.state === 'target' && tgt && tgt.side === 'enemy') {
+        const ar = this.pending && this.pending.area, key = tgt.idx + ':' + tgt.hp + ':' + ar;
+        if (this._tgtKey !== key) { this._tgtKey = key; this.help((ar && ar !== 'one' ? (TH.data.AREA_ES[ar] || ar) + ' · centro: ' : '') + tgt.name + ' · ' + tgt.hp + '/' + tgt.maxhp + ' PV · A confirmar · B volver'); }
+      } else this._tgtKey = null;
       for (const u of L) {
         if (u.side === 'enemy') {
           const fly = u.flyOff || 0, sy0 = u.sy;
           u.sy = sy0 - fly;
+          const dim = this.state === 'target' && tgtOne && u !== tgt && !u.dead;
+          const a0 = u.alpha;
+          if (dim) u.alpha = (a0 == null ? 1 : a0) * 0.4;
           TH.foes.draw(ctx, u);
+          if (dim) u.alpha = a0;
           u.sy = sy0;
           if (u.guarding && !u.dead) { ctx.fillStyle = '#ffb0a0'; ctx.fillRect(Math.round(u.x - 10), Math.round(u.sy - 30), 3, 4); ctx.fillStyle = '#7a2418'; ctx.fillRect(Math.round(u.x - 9), Math.round(u.sy - 29), 1, 2); }
           if (u.stunned && !u.dead) for (let i = 0; i < 3; i++) { const a = t * 4 + i * 2.1; ctx.fillStyle = '#ffe070'; ctx.fillRect(Math.round(u.x + Math.cos(a) * 8), Math.round(u.sy - fly - (MARK_H[u.sprite] || u.D.markH || 28) - 4 + Math.sin(a) * 2), 2, 2); }
@@ -8915,10 +8935,16 @@ void main(){
           if (u.shield) { ctx.fillStyle = 'rgba(127,216,240,.5)'; ctx.fillRect(Math.round(u.x - 8), Math.round(u.sy - 36), 1, 30); }
         }
       }
-      // vida de los enemigos
+      // vida de los enemigos (las marcas de dos enemigos pegados no se pisan)
+      const placed = [], tops = new Map();
+      for (const e of this.enemies.filter((o) => !o.dead).sort((a, b) => b.y - a.y)) {
+        let top = e.sy - (e.flyOff || 0) - (MARK_H[e.sprite] || e.D.markH || 28);
+        if (!e.D.boss) for (let k = 0; k < 4 && placed.some((p) => Math.abs(p[0] - e.x) < 30 && Math.abs(p[1] - top) < 15); k++) top -= 15;
+        placed.push([e.x, top]); tops.set(e, top);
+      }
       for (const e of this.enemies) {
         if (e.dead) continue;
-        const top = e.sy - (e.flyOff || 0) - (MARK_H[e.sprite] || e.D.markH || 28);
+        const top = tops.get(e);
         // barra de vida sobre cada enemigo
         const bw = e.D.boss ? 48 : 24, x0 = Math.round(e.x - bw / 2), y0 = Math.round(top - 6);
         ctx.fillStyle = '#1a1028'; ctx.fillRect(x0 - 1, y0 - 1, bw + 2, 4);
@@ -8955,6 +8981,7 @@ void main(){
 
       if (this.state === 'command' || this.state === 'skills' || this.state === 'items' || this.state === 'combos' || this.state === 'ecos' || this.state === 'summons') this.arrow(ctx, this.sel.x, this.sel.sy - 44, '#ffe070', t);
       if (this.state === 'ally') { const u = this.targets()[this.target]; if (u) this.arrow(ctx, u.x, u.sy - 44, '#8ef0a0', t); }
+      if (tgt && tgt.side === 'enemy' && tops.has(tgt)) this.arrow(ctx, tgt.x, tops.get(tgt) - (tgt.known && (tgt.known.w.length || tgt.known.r.length) || tgt.charging ? 24 : 13), '#ffe070', t);
       ctx.globalCompositeOperation = 'lighter';
       for (const f of this.fx) if (f.kind !== 'area') this.drawFx(ctx, f, t);
       for (const p of this.parts) { ctx.globalAlpha = 1 - p.t / p.dur; ctx.fillStyle = p.c; ctx.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s); }
@@ -21937,7 +21964,7 @@ html.mob body{overscroll-behavior:none;-webkit-touch-callout:none;position:fixed
 .mob.land .bt-row .pips{display:none}
 .mob.land .bt-row.res{flex:0 1 auto;max-width:7.5em;grid-template-columns:1.9em 1fr;grid-template-areas:"pt nm" "pt hn"}
 .mob.land .bt-row.res .bars,.mob.land .bt-row.res .mpn{display:none}
-.mob.land .bt-cmd{left:var(--cl);bottom:calc(4.4em + 10px);width:min(16em,34%);max-height:calc(100% - 4.4em - 52px);overflow-y:auto;overscroll-behavior:contain;padding:.25em;gap:0}
+.mob.land .bt-cmd{left:var(--cl);bottom:calc(4.4em + 10px);width:min(14.5em,30%);background:rgba(16,12,32,.66);backdrop-filter:none;max-height:calc(100% - 4.4em - 52px);overflow-y:auto;overscroll-behavior:contain;padding:.25em;gap:0}
 .mob.land .bt-cmd .bt-title{font-size:1em;padding:0 .4em .15em}
 .mob.land .bt-item{min-height:26px;padding:.15em .45em;flex-wrap:wrap;row-gap:0;column-gap:.4em}
 .mob.land .bt-item span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
