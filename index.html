@@ -5918,7 +5918,7 @@ void main(){
         { label: 'Margen del timing', value: TH.settings.lab(TH.settings.TIMINGS, TH.settings.timing), act: () => TH.settings.cyc('timing', TH.settings.TIMINGS) },
         { label: 'Botones táctiles', value: TH.settings.lab(TH.settings.TOUCH, TH.settings.touch), act: () => TH.settings.cyc('touch', TH.settings.TOUCH) },
         ...(document.documentElement.classList.contains('mob') ? [
-          { label: 'Mando en pantalla', value: TH.settings.ctrl === 'clasico' ? 'Clásico (cruceta + A/B)' : 'Táctil (joystick)', act: () => TH.setCtrl(TH.settings.ctrl === 'clasico' ? 'tactil' : 'clasico') },
+          { label: 'Mando en pantalla', value: TH.settings.ctrl === 'clasico' ? 'Clásico (joystick + cruceta)' : 'Táctil (joystick)', act: () => TH.setCtrl(TH.settings.ctrl === 'clasico' ? 'tactil' : 'clasico') },
           { label: 'Vibración', value: TH.settings.vib ? 'Sí' : 'No', act: () => { TH.settings.vib = !TH.settings.vib; TH.settings.saveMob(); TH.haptic && TH.haptic(20); } },
           { label: 'Correr empujando el joystick', value: TH.settings.autorun ? 'Sí' : 'No', act: () => { TH.settings.autorun = !TH.settings.autorun; TH.settings.saveMob(); } },
           { label: 'Pantalla completa', value: document.fullscreenElement ? 'Sí' : 'No', act: () => { const on = !document.fullscreenElement; TH.settings.fs = on; TH.settings.saveMob(); TH.fullscreen(on); } },
@@ -19941,12 +19941,12 @@ void main(){
 
   // ---------- modo de juego (paseo / resto) ----------
   const setPad0 = I.setPadMode.bind(I);
-  // en modo clásico la cruceta está siempre (también al caminar)
-  I.setPadMode = (dpad) => { root.classList.toggle('walk', !dpad); setPad0(S.ctrl === 'clasico' ? true : dpad); };
+  // joystick al caminar por el mapa; cruceta en combate, menús y conversaciones
+  I.setPadMode = (dpad) => { root.classList.toggle('walk', !dpad); setPad0(dpad); restStick(); };
   TH.setCtrl = (m) => {
     S.ctrl = m; S.saveMob(); I.dpad = undefined;
     root.classList.toggle('pad-c', m === 'clasico');
-    setPad0(m === 'clasico' ? true : !root.classList.contains('walk'));
+    setPad0(!root.classList.contains('walk'));
     dispatchEvent(new Event('resize'));
   };
   document.querySelectorAll('.dp').forEach((el) => el.addEventListener('pointerdown', () => TH.haptic(5)));
@@ -19958,6 +19958,8 @@ void main(){
     if (!stick || sid !== null) return;
     const sl = parseFloat(getComputedStyle(root).getPropertyValue('--sl')) || 0;
     const z = S.touch || 1;
+    // mando clásico: el joystick ocupa el sitio de la cruceta
+    if (S.ctrl === 'clasico') { stick.style.left = (Math.max(10, sl) + 60 * z) + 'px'; stick.style.top = (innerHeight - 18 - 60 * z) + 'px'; return; }
     stick.style.left = (Math.max(14, sl) + 70 * z) + 'px';
     stick.style.top = (innerHeight - 78 * z) + 'px';
   }
@@ -20111,7 +20113,10 @@ html.mob body{overscroll-behavior:none;-webkit-touch-callout:none;position:fixed
 /* ---- mando clásico: cruceta + A/B fijos a los lados, el juego encajado entre ellos ---- */
 .mob.land.pad-c .app{padding-left:calc(max(10px,env(safe-area-inset-left,0px)) + 136px*var(--touch,1));padding-right:calc(max(10px,env(safe-area-inset-right,0px)) + 136px*var(--touch,1))}
 .mob.land.pad-c .pad,.mob.land.pad-c:not(.walk) .pad{display:block}
-.mob.land.pad-c .stick{display:none!important}
+.mob.land.pad-c:not(.walk) .stick{display:none!important}
+.mob.land.pad-c.walk .pad .dpad{display:none!important}
+.mob.land.pad-c.walk .stick{display:block!important;pointer-events:auto;opacity:.92;width:calc(120px*var(--touch,1));height:calc(120px*var(--touch,1));border:2px solid var(--gold-soft);box-shadow:0 4px 0 #120e22}
+.mob.land.pad-c.walk .knob{width:52px;height:52px;margin:-26px 0 0 -26px;background:radial-gradient(circle at 40% 35%,#5a4c90,#3a3160);border-color:var(--gold-soft)}
 .mob.land.pad-c .pad .dpad{display:grid!important;position:fixed;left:max(10px,env(safe-area-inset-left,0px));bottom:max(18px,env(safe-area-inset-bottom,0px));pointer-events:auto}
 .mob.land.pad-c .btns{display:grid;grid-template-columns:auto auto;grid-template-areas:"sw a" "b a";gap:8px 10px;align-items:center;opacity:1;right:max(10px,env(safe-area-inset-right,0px));bottom:max(18px,env(safe-area-inset-bottom,0px))}
 .mob.land.pad-c #btnSwap{grid-area:sw;justify-self:center;align-self:end}
@@ -20170,7 +20175,7 @@ html.mob body{overscroll-behavior:none;-webkit-touch-callout:none;position:fixed
       () => {
         TH.scenes.render(TH.renderer.ctx); TH.renderer.present(); TH.ui.frame();
         const map = TH.scenes.registry.map;
-        TH.input.setPadMode(TH.scenes.top() !== map);
+        TH.input.setPadMode(TH.scenes.top() !== map || !!map.inCutscene || TH.dialog.active || (TH.choices && TH.choices.active));
         TH.res.syncHud(map, TH.scenes.top() === map && !map.inCutscene);
       }
     );
