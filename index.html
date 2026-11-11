@@ -883,17 +883,35 @@ void main(){
 
 </script>
 <script>/* engine/save.js */
-// Guardado en localStorage protegido: si falla, el juego sigue
+// Guardado en localStorage protegido: si falla, el juego sigue.
+// Tres ranuras. La 1 usa la clave antigua, así las partidas de antes siguen en su sitio.
 (function () {
   'use strict';
   const TH = window.TH;
+  const SLOT_KEY = 'thalyria.slot';
   TH.save = {
+    N: 3,
     KEY: 'thalyria.save.v1',
-    write(state) {
-      try { localStorage.setItem(this.KEY, JSON.stringify(state)); return true; } catch (e) { return false; }
+    slot: (() => { try { const v = +localStorage.getItem(SLOT_KEY); return v >= 0 && v < 3 ? v : 0; } catch (e) { return 0; } })(),
+    key(i) { return i ? this.KEY + '.s' + (i + 1) : this.KEY; },
+    use(i) { this.slot = i; try { localStorage.setItem(SLOT_KEY, String(i)); } catch (e) { /* sin almacenamiento */ } },
+    write(state, i) {
+      if (i == null) i = this.slot;
+      try { state.savedAt = Date.now(); localStorage.setItem(this.key(i), JSON.stringify(state)); return true; } catch (e) { return false; }
     },
-    read() {
-      try { const t = localStorage.getItem(this.KEY); return t ? JSON.parse(t) : null; } catch (e) { return null; }
+    read(i) {
+      if (i == null) i = this.slot;
+      try { const t = localStorage.getItem(this.key(i)); return t ? JSON.parse(t) : null; } catch (e) { return null; }
+    },
+    valid(s) { return !!(s && s.map && TH.data.maps[s.map] && s.flags && s.flags['intro.vista']); },
+    // «Capítulo 3 · Ruinas de Thalyria · Historia · 11/11 18:40»
+    summary(i) {
+      const s = this.read(i);
+      if (!this.valid(s)) return '';
+      const ch = TH.chapterOf ? TH.chapterOf(s.flags) : null, m = TH.data.maps[s.map];
+      const d = s.savedAt ? new Date(s.savedAt) : null, two = (n) => String(n).padStart(2, '0');
+      const dif = TH.dif ? TH.dif.label(s.flags.dif) : '';
+      return [ch ? ch.short : '', m && m.name, dif, d ? d.getDate() + '/' + (d.getMonth() + 1) + ' ' + two(d.getHours()) + ':' + two(d.getMinutes()) : ''].filter(Boolean).join(' · ');
     },
   };
 })();
@@ -5956,8 +5974,10 @@ void main(){
       const o = this.owner, c = o.clock;
       return [
         { label: 'Continuar', act: () => TH.scenes.pop() },
-        { label: 'Guardar partida', act: () => TH.ui.toast(o.saveGame() ? 'Partida guardada' : 'No se pudo guardar en este navegador') },
-        { label: 'Cargar partida', act: () => { if (o.loadGame()) { TH.scenes.pop(); TH.ui.toast('Partida cargada'); } else TH.ui.toast('No hay partida guardada'); } },
+        { label: 'Ranura de guardado', value: 'Ranura ' + (TH.save.slot + 1) + (TH.save.summary(TH.save.slot) ? '' : ' (vacía)'), act: () => TH.save.use((TH.save.slot + 1) % TH.save.N) },
+        { label: 'Guardar partida', value: 'en la ranura ' + (TH.save.slot + 1), act: () => TH.ui.toast(o.saveGame() ? 'Partida guardada en la ranura ' + (TH.save.slot + 1) : 'No se pudo guardar en este navegador') },
+        { label: 'Cargar partida', value: 'de la ranura ' + (TH.save.slot + 1), act: () => { if (o.loadGame()) { TH.scenes.pop(); TH.ui.toast('Partida cargada (ranura ' + (TH.save.slot + 1) + ')'); } else TH.ui.toast('La ranura ' + (TH.save.slot + 1) + ' está vacía'); } },
+        ...(TH.dif ? [{ label: 'Dificultad', value: TH.dif.label(), act: () => TH.dif.cycle() }] : []),
         { label: 'Velocidad del texto', value: TH.settings.speedLabel(), act: () => TH.settings.cycleSpeed() },
         { label: 'Velocidad del tiempo', value: c.speed > 1 ? 'Rápida ×30' : 'Normal', act: () => { c.speed = c.speed > 1 ? 1 : 30; } },
         { label: 'Volumen de la música', value: TH.music.label('music'), act: () => TH.music.cycle('music') },
@@ -6002,6 +6022,11 @@ void main(){
     draw() {
       const P = TH.party, E = this.el;
       E.gold.textContent = P.gold + ' oro';
+      if (TH.menuInfo) {
+        let inf = document.getElementById('pmInfo');
+        if (!inf) { inf = document.createElement('div'); inf.id = 'pmInfo'; inf.className = 'pm-info'; E.body.parentNode.insertBefore(inf, E.body); }
+        inf.innerHTML = TH.menuInfo();
+      }
       E.tabs.innerHTML = TABS.map((t, i) => '<button type="button" class="tab' + (i === this.tab ? ' sel' : '') + (this.focus === 'tabs' && i === this.tab ? ' focus' : '') + '" data-act="tab" data-i="' + i + '">' + t + '</button>').join('');
       const rows = this.rows();
       this.idx = Math.max(0, Math.min(this.idx, rows.length - 1));
@@ -7694,7 +7719,7 @@ void main(){
     }
     makeEnemy(key, x, y, idx) {
       const D = TH.data.enemies[key];
-      const e = { side: 'enemy', key, D, sprite: D.sprite, name: D.name, hp: D.hp, maxhp: D.hp, dir: 'left', anim: 'idle', frame: 0, flash: 0, alpha: 1,
+      const e = { side: 'enemy', key, D, sprite: D.sprite, name: D.name, hp: Math.round(D.hp * (TH.dif ? TH.dif.hp() : 1)), maxhp: Math.round(D.hp * (TH.dif ? TH.dif.hp() : 1)), dir: 'left', anim: 'idle', frame: 0, flash: 0, alpha: 1,
         pi: 0, stunned: false, defMul: 1, known: TH.bestiary ? TH.bestiary.known(key) : { w: [], r: [] }, buffT: 0, phase: idx * 1.3, dead: false, idx, cool: {}, decisions: 0, ai: D.ai || null, phaseIdx: 0, locks: [], lockMax: 0 };
       e.x = x; e.y = y; e.homeX = x; e.homeY = y;
       return e;
@@ -8080,7 +8105,7 @@ void main(){
     }
     combosFor(u) {
       const ids = this.active.filter((x) => !x.ko).map((x) => x.id);
-      return TH.data.combos.filter((c) => c.who.indexOf(u.id) >= 0 && c.who.every((w) => ids.indexOf(w) >= 0));
+      return TH.data.combos.filter((c) => c.who.indexOf(u.id) >= 0 && c.who.every((w) => ids.indexOf(w) >= 0) && (!c.req || TH.flags.get(c.req)) && (!c.off || !TH.flags.get(c.off)));
     }
     standby() { return Object.keys(TH.party.ecoState).filter((k) => TH.party.ecoState[k] === 'standby'); }
     openCommand(u) {
@@ -8112,7 +8137,7 @@ void main(){
         else if (it.act === 'skills') {
           this.state = 'skills'; this.menuIdx = 0;
           const mp = P.members[u.id].mp;
-          this.menu = (TH.data.skills[u.id] || []).filter((s) => !s.req || TH.flags.get(s.req)).map((s) => ({ label: s.name, skill: s, note: s.mp + ' PM · ' + TH.data.AREA_ES[s.area], types: s.types, disabled: mp < s.mp }));
+          this.menu = (TH.data.skills[u.id] || []).filter((s) => (!s.req || TH.flags.get(s.req)) && (!s.off || !TH.flags.get(s.off)) && (!s.lv || TH.party.members[u.id].lv >= s.lv)).map((s) => ({ label: s.name, skill: s, note: s.mp + ' PM · ' + TH.data.AREA_ES[s.area], types: s.types, disabled: mp < s.mp }));
           this.drawCmd();
         } else if (it.act === 'combos') {
           this.state = 'combos'; this.menuIdx = 0;
@@ -8307,6 +8332,7 @@ void main(){
         const ring = yield* this.ringOn(fx, fy, () => { this.pose(u, 'attack', 1); this.lunge(u); });
         if (epic) { this.fx.push({ kind: 'cross', x: fx, y: fy, t: 0, dur: 0.5 }, { kind: 'shockwave', x: T.x, y: T.y, r: 50, t: 0, dur: 0.5, c: TH.data.TYPE_COLOR[types[0]] }); this.flashA = 0.5; }
         for (const e of foes) this.hit(u, e, kind, power, types, { slash: true, single, big: epic, eco: !!(s && s.eco) });
+        if (s && s.stun) for (const e of foes) if (!e.dead && !e.stunned && !e.D.boss && Math.random() < s.stun) this.stun(e);
         if (ring === 'perfect') { TH.sfx('perfect');
           this.text(fx, fy - 30, '¡PERFECTO!', '#ffe070', 1, 0.8);
           yield* this.wait(0.14);
@@ -8329,6 +8355,7 @@ void main(){
           this.bolt(u, e, types[0]);
           this.hit(u, e, kind, power * (ring === 'perfect' ? 1.3 : 1), types, { magic: true, single, anyLock: s && s.anyLock, eco: !!(s && s.eco) });
         }
+        if (s && s.stun) for (const e of foes) if (!e.dead && !e.stunned && !e.D.boss && Math.random() < s.stun) this.stun(e);
         if (ring === 'perfect') { TH.sfx('perfect'); this.text(fx, fy - 30, '¡PERFECTO!', '#ffe070', 1, 0.8); }
         if (ring === 'perfect' && gfx.ringDouble) { yield* this.wait(0.2); for (const e of foes) if (!e.dead) { this.bolt(u, e, types[0]); this.hit(u, e, kind, power * 0.6, types, { magic: true, single, extra: true }); } this.text(fx, fy - 40, '¡DOBLE!', '#ffe070', 1, 0.7); }
         yield* this.wait(0.45);
@@ -8674,6 +8701,7 @@ void main(){
       if (blocked) { this.text(u.x, u.sy - 46, '¡BLOQUEO!', '#9fd8ff', 1, 0.7); this.gainCombo(12); }
       if (u.guard) base *= gfx.guardPlus ? 0.3 : 0.5;
       if (u.shield) { base *= 0.6; u.shield = false; }
+      if (TH.dif) base *= TH.dif.dmg();
       const dmg = Math.max(1, Math.round(base));
       const mm = P.members[u.id];
       this.gainCombo(6);
@@ -8760,6 +8788,7 @@ void main(){
         const ups = P.gainExp(id, Math.round(exp * (1 + ((TH.gear && TH.gear.fx(id).expUp) || 0))));
         if (ups) TH.sfx('level');
         if (ups) lines.push('<li class="up">' + TH.chars.defs[id].name + ' sube a Nv ' + mm.lv + '</li>');
+        if (ups) for (const sk of TH.data.skills[id] || []) if (sk.lv && sk.lv > mm.lv - ups && sk.lv <= mm.lv && (!sk.req || TH.flags.get(sk.req))) lines.push('<li class="up">' + TH.chars.defs[id].name + ' aprende <b>' + sk.name + '</b></li>');
       }
       const title = this.bossE ? '¡' + this.bossE.D.name + ' derrotado!' : '¡Victoria!';
       this.el.res.innerHTML = '<h3>' + title + '</h3><ul><li>Rondas: <b>' + this.round + '</b></li><li>Experiencia <b>+' + exp + '</b></li><li>Oro <b>+' + gold + '</b></li>' +
@@ -9776,6 +9805,7 @@ void main(){
           return null;
         }
         case 'save': o.saveGame(); return null;
+        case 'js': try { c.js(this); } catch (e) { console.warn('js op', e); } return null;
         // nivel mínimo de un miembro (al unirse al grupo) · velocidad del reloj (0 = detenido)
         case 'level': { const P = TH.party, mm = P.members[c.level]; if (mm && mm.lv < c.lv) { mm.lv = c.lv; mm.exp = 0; } P.healAll(); return null; }
         case 'clock': o.clock.speed = c.clock; return null;
@@ -10053,7 +10083,7 @@ void main(){
       if (!m.loadGame()) { this.newGame(); return; }
       TH.ui.toast('Partida cargada');
     },
-    hasSave() { const s = TH.save.read(); return !!(s && s.map && TH.data.maps[s.map] && s.flags && s.flags['intro.vista']); },
+    hasSave() { return TH.save.valid(TH.save.read()); },
     // modo pruebas: el capítulo empieza con el nivel, equipo, Ecos y grupo que tendría una partida normal
     startChapter(id) {
       const C = TH.data.chapters[id];
@@ -10088,18 +10118,8 @@ void main(){
     enter() {
       this.el = $('title');
       this.list = $('titleList');
-      const items = [];
       TH.music.play('grupo');
-      if (TH.game.hasSave()) items.push({ label: 'Continuar', sub: '', act: () => TH.game.continueGame() });
-      items.push({ label: 'Nueva partida', sub: 'Prólogo', act: () => TH.game.newGame() });
-      items.push({ label: 'Créditos', sub: '', act: () => { TH.scenes.push('title'); TH.credits.show(); } });
-      if (TH.tests.on()) for (const id in TH.data.chapters) {
-        const C = TH.data.chapters[id];
-        items.push({ label: 'Pruebas · ' + C.name, sub: C.test, act: () => TH.game.startChapter(id) });
-      }
-      this.items = items;
-      this.i = 0;
-      this.draw();
+      this.mainMenu();
       if (!this._bound) {
         this._bound = true;
         addEventListener('keydown', (e) => { if (TH.scenes.top() === this && TH.tests.key(e.key)) this.enter(); });
@@ -10128,11 +10148,39 @@ void main(){
       const m = TH.game.map();
       m.inCutscene = false; m.camLock = null;
     }
+    // menú principal: una línea «Continuar» por cada ranura con partida
+    mainMenu() {
+      const SV = TH.save, items = [];
+      const order = [SV.slot].concat([0, 1, 2].filter((k) => k !== SV.slot));
+      for (const k of order) if (SV.valid(SV.read(k))) items.push({ label: 'Continuar · Ranura ' + (k + 1), sub: SV.summary(k), act: () => { SV.use(k); TH.game.continueGame(); } });
+      items.push({ label: 'Nueva partida', sub: 'Elige ranura y dificultad', keep: () => this.slotMenu() });
+      items.push({ label: 'Créditos', sub: '', act: () => { TH.scenes.push('title'); TH.credits.show(); } });
+      if (TH.tests.on()) for (const id in TH.data.chapters) {
+        const C = TH.data.chapters[id];
+        items.push({ label: 'Pruebas · ' + C.name, sub: C.test, act: () => TH.game.startChapter(id) });
+      }
+      this.items = items; this.i = 0; this.draw();
+    }
+    slotMenu() {
+      const SV = TH.save, items = [];
+      for (let k = 0; k < SV.N; k++) {
+        const sum = SV.summary(k);
+        items.push({ label: 'Ranura ' + (k + 1), sub: sum ? 'Se sobrescribirá: ' + sum : 'Vacía', keep: () => this.difMenu(k) });
+      }
+      items.push({ label: 'Volver', sub: '', keep: () => this.mainMenu() });
+      this.items = items; this.i = 0; this.draw();
+    }
+    difMenu(k) {
+      const items = TH.dif.L.map((d) => ({ label: d[1], sub: d[4], act: () => { TH.save.use(k); TH.game.newGame(); TH.flags.set('dif', d[0]); } }));
+      items.push({ label: 'Volver', sub: '', keep: () => this.slotMenu() });
+      this.items = items; this.i = 1; this.draw();
+    }
     draw() {
       this.list.innerHTML = this.items.map((it, k) => '<button type="button" class="menu-item' + (k === this.i ? ' sel' : '') + '" data-i="' + k + '"><span>' + it.label + '</span><small>' + (it.sub || '') + '</small></button>').join('');
     }
     pick() {
       const it = this.items[this.i];
+      if (it.keep) { it.keep(); return; }
       TH.scenes.pop();
       it.act();
     }
@@ -12030,12 +12078,10 @@ void main(){
     { wait: 0.8 },
 
     // narración de Halvard sobre negro
-    { narrate: 'Antes de que el mar tuviera nombre, {p:0.3}una isla cantaba bajo las estrellas.', name: 'Halvard' },
-    { narrate: 'La llamaban {*Thalyria*}. {p:0.4}Sus faros no guiaban barcos: {p:0.3}guardaban el paso del tiempo.', name: 'Halvard' },
+    { narrate: 'Antes de que el mar tuviera nombre, {p:0.3}una isla cantaba bajo las estrellas: {p:0.3}{*Thalyria*}. {p:0.4}Sus faros guardaban el paso del tiempo.', name: 'Halvard' },
     { narrate: 'Hasta que una mañana el sol se quedó quieto en lo alto… {p:0.6}y no volvió a moverse.', name: 'Halvard' },
-    { narrate: 'Lo llamaron {*el Día Detenido*}. {p:0.4}Duró un instante. {p:0.5}Duró mil años.', name: 'Halvard' },
-    { narrate: 'Thalyria se hundió con su canto. {p:0.4}De ella solo quedaron ecos, {p:0.3}dormidos bajo las mareas.', name: 'Halvard' },
-    { narrate: 'Esta es la historia de cómo volvió a amanecer. {p:0.5}Y empieza, como casi todo lo que importa, {p:0.3}con un muchacho que soñaba con el mar.', name: 'Halvard' },
+    { narrate: 'Lo llamaron {*el Día Detenido*}. {p:0.4}Duró un instante. {p:0.5}Duró mil años. {p:0.4}Y Thalyria se hundió con su canto.', name: 'Halvard' },
+    { narrate: 'Esta es la historia de cómo volvió a amanecer. {p:0.5}Empieza con un muchacho que soñaba con el mar.', name: 'Halvard' },
 
     // el sueño de Kaelen
     { dream: true },
@@ -12048,18 +12094,14 @@ void main(){
     { face: '@dream', dir: 'up' },
     { say: 'kaelen', e: 'neutral', t: '¿Hola? {p:0.3}¿Quién… está ahí?' },
     { orb: [192, 96], a: 1, time: 2.6 },
-    { say: 'voice', t: 'El mar recuerda lo que vosotros habéis olvidado.' },
     { say: 'voice', t: 'Cada noche la marea vuelve un poco antes. {p:0.4}Cada noche, el día tarda un poco más en llegar.' },
-    { say: 'kaelen', e: 'sad', t: 'Otra vez este sueño… {p:0.4}Siempre el mismo.' },
     {
       choice: [
         { t: '¿Quién eres?', v: 'quien', then: [
           { say: 'voice', t: 'Alguien que te envió muy lejos, {p:0.4}para que un día pudieras volver.' },
-          { say: 'kaelen', e: 'sad', t: '¿Enviarme…? {p:0.4}¿Desde dónde?' },
         ] },
         { t: '¿Qué quieres de mí?', v: 'que', then: [
           { say: 'voice', t: 'Que despiertes. {p:0.4}Y que no apartes la mirada cuando todos los demás lo hagan.' },
-          { say: 'kaelen', e: 'angry', t: 'Siempre hablas en acertijos.' },
         ] },
         { t: '(Guardar silencio)', v: 'calla', then: [
           { say: 'voice', t: 'Callas. {p:0.4}Bien. {p:0.3}Escuchar también es una forma de empezar.' },
@@ -12101,7 +12143,6 @@ void main(){
     { face: 'kaelen', dir: 'mira' },
     { say: 'mira', e: 'happy', t: '¡Otra vez despierto antes que las gaviotas! {p:0.3}¿Has vuelto a dormir en el tejado?' },
     { say: 'kaelen', e: 'neutral', t: 'He soñado con el mar. {p:0.4}Con una luz que hablaba.' },
-    { say: 'mira', e: 'neutral', t: '¿Una luz que habla? {p:0.3}¿Y qué te decía?' },
     {
       choice: [
         { t: 'Contarle el sueño', v: 'contar', then: [
@@ -12125,12 +12166,10 @@ void main(){
     { emote: 'kaelen', icon: '!', time: 0.9 },
     { face: 'mira', dir: 'down' },
     { face: 'kaelen', dir: 'down', time: 0.6 },
-    { say: 'mira', e: 'sad', t: '¿Lo has notado? {p:0.3}Desde anoche la tierra tiembla así.' },
-    { say: 'mira', e: 'sad', t: 'Y la marea… {p:0.4}esta mañana el agua ha llegado hasta las barcas varadas.' },
+    { say: 'mira', e: 'sad', t: 'Desde anoche la tierra tiembla así. {p:0.4}Y esta mañana el agua ha llegado hasta las barcas varadas.' },
     { face: 'mira', dir: 'kaelen' },
     // lo siguiente depende de la elección
     { if: 'intro.mira=contar', then: [
-      { say: 'mira', e: 'neutral', t: 'Cuéntaselo a Ilun. {p:0.3}Él sabrá qué significa tu luz.' },
     ] },
     { if: 'intro.mira=quitar', then: [
       { say: 'mira', e: 'neutral', t: 'Sueño o no, {p:0.3}Ilun quiere verte. {p:0.3}Y no le gusta esperar.' },
@@ -12138,7 +12177,6 @@ void main(){
     { if: 'intro.mira=ilun', then: [
       { say: 'mira', e: 'happy', t: 'Sube por el camino del bosque. {p:0.3}¡Y no te entretengas con los cangrejos!' },
     ] },
-    { say: 'mira', e: 'neutral', t: 'Yo bajo al puerto a ayudar con las barcas.' },
     { move: 'mira', path: [[19, 13.3], [19, 17]], run: true, wait: false },
     { say: 'kaelen', e: 'neutral', t: 'El claro de Ilun… {p:0.4}Allá vamos.' },
     { set: { 'intro.vista': true, objetivo: 'claro' } },
@@ -12153,7 +12191,6 @@ void main(){
     { if: 'ilun.visto', then: [
       { say: '@npc', e: 'neutral', t: 'El fuego aguanta. {p:0.3}Nosotros también. {p:0.4}Ve con cuidado, Kaelen.' },
     ], else: [
-      { say: '@npc', e: 'neutral', t: 'Kaelen. {p:0.3}O llegas tarde… {p:0.4}o el sol llega pronto. {p:0.3}Ya no sé distinguirlo.' },
       { if: 'intro.mira=contar', then: [{ say: '@npc', e: 'sad', t: 'Mira me ha hablado de tu luz que habla.' }] },
       { if: 'intro.respuesta=quien', then: [
         { say: 'kaelen', e: 'sad', t: 'En el sueño, la voz dijo que alguien me envió. {p:0.3}De muy lejos.' },
@@ -12364,22 +12401,14 @@ void main(){
     { place: 'elara', at: [6.6, 6.6], dir: 'left' },
     { wait: 0.4 },
     { say: 'ilun', e: 'neutral', t: 'Kaelen. {p:0.3}O llegas tarde… {p:0.4}o el sol llega pronto. {p:0.3}Ya no sé distinguirlo.' },
-    { say: 'elara', e: 'happy', t: 'Maestro, eso lo dice cada mañana.' },
     { face: 'elara', dir: 'kaelen' },
-    { say: 'elara', e: 'neutral', t: 'Hola, Kaelen. {p:0.3}Ilun no ha pegado ojo. {p:0.3}Lleva toda la noche escuchando el mar.' },
-    { say: 'kaelen', e: 'neutral', t: 'Elara. {p:0.3}¿Tú también lo has notado? {p:0.4}La tierra tiembla, la marea…' },
-    { say: 'elara', e: 'sad', t: 'El agua del cuenco de luna se ha vuelto salada. {p:0.4}Eso no había pasado nunca.' },
-    { if: 'intro.mira=contar', then: [{ say: 'ilun', e: 'sad', t: 'Mira me ha hablado de tu luz que habla.' }] },
     { say: 'kaelen', e: 'sad', t: 'Esta noche volví a soñar. {p:0.3}Una luz sobre el agua. {p:0.4}Me dijo que el {~Día Detenido~} no ha terminado.' },
     { emote: 'elara', icon: '!', time: 0.8 },
-    { say: 'ilun', e: 'sad', t: '…' },
     { if: 'intro.respuesta=quien', then: [
-      { say: 'kaelen', e: 'sad', t: 'Y que alguien me envió muy lejos. {p:0.3}Para que un día pudiera volver.' },
-      { say: 'ilun', e: 'neutral', t: 'Hay preguntas que solo se responden cuando llega su marea. {p:0.4}Esta aún no ha llegado.' },
+      { say: 'kaelen', e: 'sad', t: 'Y que alguien me envió lejos para que pudiera volver.' },
     ] },
-    { say: 'ilun', e: 'neutral', t: 'Escuchad los dos. {p:0.4}Antes que el pueblo, antes que el puerto, {p:0.3}antes que las barcas… {p:0.4}estaban los faros.' },
-    { say: 'ilun', e: 'neutral', t: 'Cuatro faros en todo Vael. {p:0.3}No los encendimos nosotros. {p:0.4}Los heredamos de {*Thalyria*}.' },
-    { say: 'ilun', e: 'sad', t: 'Su luz no guía barcos. {p:0.4}Sujeta el día en su sitio. {p:0.3}Mientras brillen, la marea no puede alcanzar el amanecer.' },
+    { say: 'ilun', e: 'neutral', t: 'Los faros son de {*Thalyria*}, más viejos que el pueblo.' },
+    { say: 'ilun', e: 'sad', t: 'Su luz no guía barcos: {p:0.3}sujeta el día. {p:0.4}Mientras brillen, la marea no alcanza el amanecer.' },
     { say: 'elara', e: 'neutral', t: 'Y si la marea cada noche llega más lejos…' },
     { say: 'ilun', e: 'angry', t: '…es que algo está bebiendo la luz. {p:0.4}Desde abajo.' },
     {
@@ -12390,21 +12419,16 @@ void main(){
         ] },
         { t: '¿Por qué me hablas a mí de esto?', then: [
           { say: 'ilun', e: 'neutral', t: 'Porque el mar te trajo a esta playa hace diecisiete años, {p:0.3}envuelto en una vela y con esa lanza en los brazos.' },
-          { say: 'kaelen', e: 'sad', t: '…' },
-          { say: 'ilun', e: 'neutral', t: 'Y el mar no devuelve nada por casualidad.' },
         ] },
         { t: '¿Qué tenemos que hacer?', then: [
           { say: 'ilun', e: 'happy', t: 'Ah. {p:0.3}La pregunta de alguien que ya ha decidido.' },
         ] },
       ],
     },
-    { say: 'ilun', e: 'neutral', t: 'Al caer la tarde subid al faro. {p:0.3}Halvard, el farero, lleva cincuenta años mirando esa luz. {p:0.4}Si algo ha cambiado, él lo sabe.' },
-    { say: 'ilun', e: 'neutral', t: 'Elara irá contigo. {p:0.3}Lleva agua de luna para la lente: {p:0.2}el faro tendrá sed esta noche.' },
+    { say: 'ilun', e: 'neutral', t: 'Al caer la tarde subid al faro. {p:0.3}Si algo ha cambiado, Halvard lo sabe. {p:0.3}Elara, ve con él.' },
     { face: 'elara', dir: 'ilun' },
-    { say: 'elara', e: 'sad', t: 'Maestro… {p:0.3}¿y si de verdad viene algo?' },
-    { say: 'ilun', e: 'happy', t: 'Entonces recordarás que la luna también empuja la marea. {p:0.4}No solo la padece.' },
     { face: 'elara', dir: 'kaelen' },
-    { say: 'elara', e: 'happy', t: 'Bueno. {p:0.3}Parece que hoy somos dos, Kaelen.' },
+    { say: 'elara', e: 'happy', t: 'Hoy somos dos, Kaelen.' },
     { set: 'grupo.elara' },
     { set: 'ilun.visto' },
     { join: 'elara', at: [6.6, 6.6] },
@@ -12427,24 +12451,18 @@ void main(){
     { move: 'kaelen', to: [31.6, 8.1], speed: 50 },
     { face: 'kaelen', dir: 'right' },
     { face: 'halvard', dir: 'kaelen' },
-    { say: 'halvard', e: 'neutral', t: 'El chico de la playa. {p:0.3}Y la aprendiz de Ilun. {p:0.4}Os esperaba más tarde… {p:0.3}o más pronto. {p:0.3}El tiempo ya no se porta como antes.' },
-    { say: 'elara', e: 'neutral', t: 'Ilun nos envía, señor Halvard. {p:0.3}Traigo agua de luna para la lente.' },
-    { say: 'halvard', e: 'happy', t: 'Bendito sea ese viejo terco. {p:0.4}Deja el cuenco en el primer peldaño, niña. {p:0.3}Yo me encargo.' },
-    { say: 'halvard', e: 'neutral', t: '¿Sabéis lo que es esta torre? {p:0.4}La gente cree que es un faro.' },
+    { say: 'halvard', e: 'neutral', t: 'El chico de la playa y la aprendiz de Ilun. {p:0.3}Os esperaba.' },
     { say: 'halvard', e: 'neutral', t: 'En lo alto arde el {*Ojo del Alba*}: un pedazo del último amanecer de Thalyria. {p:0.4}Mientras brille, el día de mañana {*existe*}.' },
     { say: 'kaelen', e: 'neutral', t: '¿Y si se apaga?' },
     { say: 'halvard', e: 'sad', t: 'Entonces mañana no llega. {p:0.4}Llega el mar.' },
     { face: 'halvard', dir: 'down' },
-    { say: 'halvard', e: 'sad', t: 'Esa lanza que llevas, muchacho. {p:0.4}La vi el día que el mar te dejó en la arena. {p:0.3}Brillaba igual que el Ojo.' },
-    { say: 'kaelen', e: 'sad', t: 'Es solo una lanza de pesca. {p:0.3}Tiene la punta roma.' },
-    { say: 'halvard', e: 'neutral', t: 'Eso dicen todas las cosas que duermen.' },
+    { say: 'halvard', e: 'sad', t: 'Esa lanza brillaba igual que el Ojo el día que el mar te dejó en la arena. {p:0.3}Las cosas que duermen despiertan.' },
     // anochece de golpe
     { hour: 20.6, time: 2.2, wait: false },
     { clock: 0 },
     { shake: 3, time: 1.4, wait: false },
     { emote: 'kaelen', icon: '!', time: 0.8, wait: false },
     { emote: 'elara', icon: '!', time: 0.8 },
-    { say: 'elara', e: 'sad', t: '¡Otra vez la tierra!' },
     { cam: [34, 2], time: 1.0 },
     { flash: 0.3, color: '#fff0c0' },
     { wait: 0.3 },
@@ -12454,8 +12472,7 @@ void main(){
     { shake: 2, time: 1.2, wait: false },
     { say: 'none', name: 'Gritos en el puerto', t: '{~¡Del agua! {p:0.2}¡Salen del agua!~}' },
     { cam: [32, 8], time: 1.0 },
-    { say: 'halvard', e: 'angry', t: 'Larvas del Fondo… {p:0.4}Así empezó la otra vez. {p:0.3}Así empezó {*todo*}.' },
-    { say: 'halvard', e: 'angry', t: 'Yo me quedo con la luz. {p:0.4}Vosotros, ¡al pueblo! {p:0.3}Que no quede nadie fuera de casa.' },
+    { say: 'halvard', e: 'angry', t: 'Larvas del Fondo. {p:0.4}Así empezó {*todo*}. {p:0.4}Yo me quedo con la luz: {p:0.3}¡vosotros, al pueblo!' },
     { say: 'kaelen', e: 'angry', t: 'Mira está en la plaza. {p:0.3}¡Elara, vamos!' },
     { set: { 'def.activa': true, objetivo: 'defensa' } },
     { refresh: true },
@@ -12478,13 +12495,11 @@ void main(){
     { say: 'mira', e: 'sad', t: '{~¡Kaelen!~} {p:0.3}¡Están por todas partes! {p:0.3}¡Han salido del pozo!' },
     { shake: 2, time: 0.6, wait: false },
     { say: 'kaelen', e: 'angry', t: 'Ponte detrás de mí, Mira. {p:0.3}No te muevas.' },
-    { say: 'elara', e: 'neutral', t: 'Kaelen, ataca cuando se acerquen. {p:0.3}Yo te cubro con la luna.' },
     { battle: ['larva', 'larva'], at: [19.5, 14.6], once: 'def.b1', tips: ['basico', 'timing'], after: 'pro.def1b' },
   ];
   S['pro.def1b'] = [
     { bars: true },
     { face: 'kaelen', dir: 'mira' },
-    { say: 'mira', e: 'sad', t: 'Eran… {p:0.3}eran como los peces de luz que vio el pequeño Tobías. {p:0.4}Pero con dientes.' },
     { say: 'kaelen', e: 'neutral', t: 'Corre a la posada. {p:0.3}Atrancad la puerta y no abráis hasta el alba.' },
     { say: 'mira', e: 'angry', t: '¡Ni se te ocurra morirte, ¿me oyes?!' },
     { move: 'mira', path: [[18.6, 16.6], [12, 17.6]], run: true, wait: false },
@@ -12495,12 +12510,30 @@ void main(){
     { cam: [26, 16], time: 0.8 },
     { move: 'flint', path: [[27.4, 17.6], [24.2, 14.6]], run: true },
     { face: 'flint', dir: 'kaelen' },
-    { say: 'flint', e: 'angry', t: 'Uno se me ha metido en la fragua. {p:0.3}{*En la fragua*}. {p:0.4}Se ha comido medio saco de carbón y me ha mirado como si el postre fuese yo.' },
-    { say: 'flint', e: 'happy', t: 'Le he explicado con el martillo que no. {p:0.4}Muy didáctico.' },
-    { say: 'kaelen', e: 'happy', t: 'Flint. {p:0.3}Llegas justo a tiempo.' },
-    { say: 'flint', e: 'neutral', t: 'Yo siempre llego justo a tiempo. {p:0.3}Lo que pasa es que el tiempo suele llegar tarde.' },
-    { say: 'elara', e: 'neutral', t: 'Vienen del puerto. {p:0.3}Si bajamos juntos, podemos cortarles el paso en el muelle.' },
-    { say: 'flint', e: 'happy', t: 'Bajar, cortar el paso, golpear cosas. {p:0.4}Por fin un plan que entiendo entero.' },
+    { say: 'flint', e: 'angry', t: 'Uno se me ha comido el carbón de la fragua. {p:0.3}Le he explicado con el martillo que no.' },
+    // el faro se apaga y la lanza despierta (antes, tras el combate del puerto)
+    { shake: 4, time: 1.6, wait: false },
+    { cam: [34, 3], time: 1.0 },
+    { flash: 0.25, color: '#fff0c0' },
+    { wait: 0.4 },
+    { set: 'faro.apagado' },
+    { wait: 1.0 },
+    { say: 'elara', e: 'sad', t: 'El faro… {p:0.6}se ha apagado.' },
+    { cam: [16, 24], time: 1.6 },
+    { shake: 3, time: 1.0, wait: false },
+    { say: 'none', name: 'Matriarca abisal', t: '{~Luzzz…~} {p:0.5}Sabe a sol viejo. {p:0.4}Mis crías tendrán sol esta noche. {p:0.4}Y mañana… {p:0.3}{*mañana no vendrá*}.' },
+    { say: 'flint', e: 'angry', t: 'Eso es una madre. {p:0.3}Una madre enorme. {p:0.4}Odio cuando hay madre.' },
+    { cam: [22, 14], time: 1.0 },
+    { emote: 'kaelen', icon: '…', time: 1.2 },
+    { say: 'voice', t: '{s:0.7}Cuando la luz del faro se apague… {p:0.5}{*despierta*}.' },
+    { flash: 0.9, color: '#ffffff' },
+    { shake: 2, time: 0.8, wait: false },
+    { say: 'none', t: 'La vieja lanza de pesca arde en las manos de Kaelen. {p:0.4}La punta roma se abre como un amanecer.' },
+    { equip: 'kaelen', slot: 'weapon', item: 'lanza_alba', replace: true },
+    { set: 'res.lanza' },
+    { say: 'none', t: 'Kaelen empuña la {*Lanza del Alba*}. {p:0.3}Nueva Resonancia: {*Lanzada lunar*} (X o B corto): empuja bloques y enciende cristales.' },
+    { say: 'elara', e: 'sad', t: 'Kaelen… {p:0.3}tus ojos. {p:0.4}Brillan como el Ojo del faro.' },
+    { say: 'kaelen', e: 'angry', t: 'Está en el puerto. {p:0.3}Vamos a por ella.' },
     { set: 'grupo.flint' },
     { join: 'flint' },
     { level: 'flint', lv: 2 },
@@ -12513,7 +12546,7 @@ void main(){
   ];
 
   // ======================================================================
-  // PRÓLOGO · P5 — El puerto, el faro que se apaga y la lanza que despierta
+  // PRÓLOGO · P5 — El puerto: la Matriarca huye
   // ======================================================================
   S['pro.def2'] = [
     { bars: true },
@@ -12521,40 +12554,14 @@ void main(){
     { move: 'kaelen', to: [21, 21.2], speed: 70 },
     { face: 'kaelen', dir: 'right' },
     { say: 'flint', e: 'angry', t: 'Ahí está la fiesta. {p:0.3}Y han traído a los primos de concha dura.' },
-    { say: 'elara', e: 'neutral', t: 'Los golpes sueltan luz, ¿lo notáis? {p:0.3}Usadla.' },
     { battle: ['cangrejo', 'larva', 'larva'], at: [25, 21.4], once: 'def.b2', tips: ['orbes', 'combo'], after: 'pro.def2b' },
   ];
   S['pro.def2b'] = [
     { bars: true },
     { say: 'flint', e: 'happy', t: '¡Ja! {p:0.3}Que vengan más. {p:0.4}…Era una forma de hablar, ¿eh? {p:0.3}Que no vengan más.' },
-    // el faro se apaga
-    { shake: 4, time: 1.6, wait: false },
-    { cam: [34, 3], time: 1.0 },
-    { flash: 0.25, color: '#fff0c0' },
-    { wait: 0.4 },
-    { set: 'faro.apagado' },
-    { wait: 1.0 },
-    { say: 'elara', e: 'sad', t: 'El faro… {p:0.6}se ha apagado.' },
-    { cam: [16, 24], time: 1.6 },
+    { cam: [16, 24], time: 1.2 },
     { set: 'def.b2' },
     { refresh: true },
-    { shake: 3, time: 1.0, wait: false },
-    { say: 'none', name: 'Matriarca abisal', t: '{~Luzzz…~} {p:0.5}Sabe a sol viejo. {p:0.3}A días que ya no existen.' },
-    { say: 'none', name: 'Matriarca abisal', t: 'Mis crías tendrán sol esta noche. {p:0.4}Y mañana… {p:0.3}{*mañana no vendrá*}.' },
-    { say: 'flint', e: 'angry', t: 'Eso es una madre. {p:0.3}Una madre enorme. {p:0.4}Odio cuando hay madre.' },
-    { say: 'kaelen', e: 'angry', t: 'Se ha bebido la luz del faro…' },
-    // el sueño se cumple
-    { emote: 'kaelen', icon: '…', time: 1.2 },
-    { say: 'voice', t: '{s:0.7}Cuando la luz del faro se apague…' },
-    { say: 'voice', t: '{s:0.6}{*despierta*}.' },
-    { flash: 0.9, color: '#ffffff' },
-    { shake: 2, time: 0.8, wait: false },
-    { say: 'none', t: 'La vieja lanza de pesca arde en las manos de Kaelen. {p:0.4}La punta roma se abre como un amanecer.' },
-    { equip: 'kaelen', slot: 'weapon', item: 'lanza_alba', replace: true },
-    { set: 'res.lanza' },
-    { say: 'none', t: '¡La lanza ha despertado! {p:0.3}Kaelen empuña la {*Lanza del Alba*}.' },
-    { say: 'none', t: 'Nueva Resonancia: {*Lanzada lunar*}. {p:0.3}Pulsa X (o B corto) para lanzar un haz que empuja bloques y enciende cristales.' },
-    { say: 'elara', e: 'sad', t: 'Kaelen… {p:0.3}tus ojos. {p:0.4}Brillan como el Ojo del faro.' },
     { say: 'kaelen', e: 'angry', t: '¡Devuélvela!' },
     { flash: 0.5, color: '#bfe0ff' },
     { shake: 5, time: 0.8, wait: false },
@@ -12563,9 +12570,8 @@ void main(){
     { refresh: true },
     { wait: 0.6 },
     { say: 'elara', e: 'neutral', t: 'Ha huido hacia las rocas del oeste. {p:0.3}Hacia la {*Gruta de la Marea*}.' },
-    { say: 'flint', e: 'neutral', t: 'La gruta. {p:0.3}Claro. {p:0.4}Porque perseguir a un monstruo hasta su cueva oscura siempre sale bien.' },
+    { say: 'flint', e: 'neutral', t: 'La gruta. {p:0.3}Claro. {p:0.3}Eso siempre sale bien.' },
     { say: 'kaelen', e: 'angry', t: 'Se lleva la luz que sujeta el mañana. {p:0.4}Si no la recuperamos antes del alba, no habrá alba.' },
-    { say: 'flint', e: 'happy', t: 'Vale, vale. {p:0.3}Dicho así suena más heroico que como lo había dicho yo.' },
     { set: { objetivo: 'gruta' } },
     { bars: false },
     { cam: 'free', time: 0.5 },
@@ -12578,7 +12584,6 @@ void main(){
   // ======================================================================
   S['pro.gruta'] = [
     { say: 'elara', e: 'sad', t: 'Qué frío… {p:0.4}El agua aquí dentro está quieta, como si contuviera el aliento.' },
-    { say: 'flint', e: 'neutral', t: 'Cristales que brillan solos, paredes que gotean, olor a pez muerto. {p:0.4}Me recuerda a la casa de mi tía.' },
     { say: 'kaelen', e: 'neutral', t: 'La Lanzada puede despertar esos cristales. {p:0.3}Si algo nos cierra el paso, probaré con ella.' },
     { toast: 'X (o B corto): Resonancia · R: elegir otra Resonancia del grupo' },
   ];
@@ -12586,18 +12591,16 @@ void main(){
     { shake: 1, time: 0.8, wait: false },
     { say: 'voice', t: '{s:0.7}Kaelen…' },
     { say: 'voice', t: 'La luz que bebió no es suya. {p:0.4}Ni tuya. {p:0.4}Es de todos los mañanas.' },
-    { say: 'elara', e: 'sad', t: '¿Lo has oído tú también? {p:0.4}Una voz… {p:0.3}en el agua.' },
     { say: 'kaelen', e: 'neutral', t: 'Es la voz de mi sueño. {p:0.4}Ya no estoy dormido.' },
   ];
   S['pro.matriarca'] = [
     { bars: true },
     { cam: [12, 4], time: 1.4 },
     { shake: 2, time: 1.0, wait: false },
-    { say: 'none', name: 'Matriarca abisal', t: 'Cuánta luz cabe en un pescador… {p:0.5}Llevo mil años con hambre, niño. {p:0.3}Mil años sin un solo amanecer.' },
+    { say: 'none', name: 'Matriarca abisal', t: 'Cuánta luz cabe en un pescador… {p:0.5}Mil años sin un amanecer, niño.' },
     { say: 'kaelen', e: 'angry', t: 'Devuelve la luz del faro. {p:0.4}No es tuya.' },
     { say: 'none', name: 'Matriarca abisal', t: '¿Tuya, entonces? {p:0.4}El Fondo te recuerda. {p:0.3}Te soltó una vez… {p:0.4}{*no volverá a hacerlo*}.' },
-    { say: 'elara', e: 'angry', t: 'Kaelen, mira su lomo: {p:0.3}la luz que robó se le ve por dentro. {p:0.4}¡Golpeadla con fuego y con luz!' },
-    { say: 'flint', e: 'neutral', t: 'Lo que ella teme. {p:0.3}Martillo. {p:0.4}Todo el mundo teme al martillo.' },
+    { say: 'elara', e: 'angry', t: '¡La luz robada brilla en su lomo! {p:0.3}¡Fuego y luz!' },
     { battle: ['matriarca'], at: [12, 3.6], once: 'jefe.matriarca', tips: ['ecos'], after: 'pro.matriarca.fin' },
   ];
 
@@ -12611,9 +12614,6 @@ void main(){
     { say: 'none', name: 'Matriarca abisal', t: '{~No… {p:0.3}no…~} {p:0.5}El Fondo… {p:0.3}vendrá… {p:0.4}a por ti…' },
     { flash: 0.8, color: '#fff0c0' },
     { say: 'none', t: 'La Matriarca se deshace en espuma negra. {p:0.4}De ella brota una esfera de luz dorada que flota hacia Kaelen.' },
-    { say: 'kaelen', e: 'neutral', t: 'Está caliente. {p:0.4}Como el sol de por la mañana.' },
-    { say: 'elara', e: 'happy', t: 'Es la luz del faro. {p:0.3}¡La tenemos!' },
-    { say: 'flint', e: 'happy', t: '¿Ves? {p:0.3}Martillo. {p:0.4}No falla.' },
     { fade: 1, time: 1.0 },
     { warp: 'brumaSalada', at: [31.6, 8.1], dir: 'right', hour: 5.4 },
     { roster: ['kaelen', 'elara', 'flint'] },
@@ -12622,8 +12622,6 @@ void main(){
     { cam: [33, 6] },
     { wait: 0.6 },
     { fade: 0, time: 1.4 },
-    { say: 'halvard', e: 'sad', t: 'Volvéis. {p:0.4}Los tres. {p:0.3}Y traéis algo que brilla.' },
-    { say: 'kaelen', e: 'neutral', t: 'La luz del Ojo, señor Halvard.' },
     { flash: 0.9, color: '#ffffff' },
     { set: 'faro.apagado', v: false },
     { set: 'def.fin' },
@@ -12633,17 +12631,11 @@ void main(){
     { say: 'none', t: 'La luz sube por la torre como sube la marea… {p:0.4}y el Ojo del Alba vuelve a arder.' },
     { refresh: true },
     { cam: [33, 6], time: 1.2 },
-    { say: 'halvard', e: 'happy', t: 'Cincuenta años. {p:0.4}Cincuenta años mirando esa luz, {p:0.3}y hoy es la primera vez que la veo {*volver*}.' },
-    { say: 'ilun', e: 'neutral', t: 'Habéis hecho algo que no se hacía desde antes del Día Detenido. {p:0.4}Pero escuchad bien lo que viene ahora.' },
-    { say: 'ilun', e: 'sad', t: 'Esta noche no se apagó un faro. {p:0.4}Se apagaron {*dos*}.' },
+    { say: 'halvard', e: 'happy', t: 'Cincuenta años mirando esa luz, {p:0.3}y hoy la veo {*volver*}.' },
+    { say: 'ilun', e: 'sad', t: 'Bien hecho. {p:0.4}Pero esta noche no se apagó un faro. {p:0.4}Se apagaron {*dos*}.' },
     { say: 'halvard', e: 'sad', t: 'Mirad al este. {p:0.4}Allí, sobre el cabo. {p:0.3}El {*faro del Vigía*} sigue a oscuras.' },
-    { say: 'ilun', e: 'neutral', t: 'Cuatro faros sujetan el día de Vael. {p:0.4}Si cae uno, la marea avanza. {p:0.3}Si caen todos…' },
-    { say: 'elara', e: 'sad', t: '…el Día Detenido vuelve.' },
-    { say: 'halvard', e: 'neutral', t: 'En el cabo hay un guardia. {p:0.3}Firion, el último de la Guardia del Vigía. {p:0.4}Un muchacho serio que no ha faltado a su puesto ni un solo día.' },
-    { say: 'halvard', e: 'sad', t: 'Si el faro está apagado… {p:0.4}es que algo le ha impedido encenderlo.' },
-    { say: 'flint', e: 'neutral', t: 'Dejadme adivinar. {p:0.3}Vamos a ir. {p:0.4}A pie. {p:0.3}Por un acantilado.' },
+    { say: 'halvard', e: 'neutral', t: 'Allí vigila Firion, el último de la Guardia. {p:0.3}Algo se lo ha impedido.' },
     { say: 'kaelen', e: 'neutral', t: 'Vamos a ir.' },
-    { say: 'ilun', e: 'happy', t: 'Primero dormid. {p:0.4}Hasta los héroes necesitan que llegue la mañana. {p:0.3}Y gracias a vosotros, {*llegará*}.' },
     { fade: 1, time: 1.2 },
     { chapter: 'Fin del Prólogo', title: 'La noche en que se apagó el faro', sub: 'Thalyria · El Día Detenido' },
     { set: { 'prologo.fin': true, objetivo: 'cabo' } },
@@ -12673,17 +12665,11 @@ void main(){
     { wait: 1.0 },
     { say: 'mira', e: 'neutral', t: 'Así que os vais. {p:0.4}Al cabo. {p:0.3}Donde las gaviotas negras.' },
     { say: 'kaelen', e: 'neutral', t: 'El faro del Vigía sigue apagado, Mira. {p:0.4}Si no lo encendemos, la marea volverá esta noche.' },
-    { say: 'mira', e: 'sad', t: 'Ya lo sé. {p:0.4}Lo ha dicho Halvard en la plaza, con la voz de los entierros.' },
-    { say: 'mira', e: 'happy', t: 'Toma. {p:0.3}Pan de algas. {p:0.4}Está un poco quemado porque lo he hecho yo.' },
+    { say: 'mira', e: 'happy', t: 'Toma, pan de algas. {p:0.3}Algo quemado: lo he hecho yo. {p:0.3}Volved los tres.' },
     { give: 'pan_algas', n: 3 },
-    { say: 'flint', e: 'happy', t: 'Un poco quemado es como más me gusta. {p:0.3}Así tiene carácter.' },
-    { say: 'mira', e: 'angry', t: 'Elara, {p:0.3}cuida de que este no haga ninguna tontería.' },
-    { say: 'elara', e: 'happy', t: 'Lo intentaré. {p:0.4}Pero hasta la luna tiene un límite.' },
-    { say: 'mira', e: 'sad', t: 'Kaelen… {p:0.4}volved. {p:0.3}Los tres.' },
-    { say: 'kaelen', e: 'happy', t: 'Volveremos. {p:0.3}Con el sol detrás.' },
     { move: 'mira', path: [[19, 17], [12, 17.6]], wait: false },
     { wait: 0.6 },
-    { say: 'elara', e: 'neutral', t: 'Nerea ha recibido género nuevo para la guardia del cabo. {p:0.3}Deberíamos pasar por su puesto antes de salir.' },
+    { say: 'elara', e: 'neutral', t: 'Nerea tiene género nuevo. {p:0.3}Pasemos por su puesto antes de salir.' },
     { set: 'objetivo', v: 'cabo' },
     { refresh: true },
     { bars: false },
@@ -12700,8 +12686,6 @@ void main(){
     { cam: [33, 2], time: 2.2 },
     { wait: 0.6 },
     { say: 'elara', e: 'sad', t: 'Ahí está. {p:0.4}El faro del Vigía. {p:0.3}Tan alto que parece sujetar las nubes.' },
-    { say: 'kaelen', e: 'neutral', t: 'Y tan apagado como decía Halvard.' },
-    { say: 'flint', e: 'neutral', t: 'Arriba del todo, claro. {p:0.4}Ningún faro en la historia se ha construido en un sitio llano y cómodo.' },
     { cam: 'leader', time: 1.6 },
     { bars: false },
     { toast: 'Objetivo: sube al faro del Vigía' },
@@ -12712,7 +12696,7 @@ void main(){
     { shake: 2, time: 0.6, wait: false },
     { say: 'none', name: '???', t: '{~¡Atrás! {p:0.3}¡Atrás, he dicho!~}' },
     { face: 'firion', dir: 'up' },
-    { say: 'firion', e: 'angry', t: 'Doce noches. {p:0.4}Doce noches sin dormir y seguís viniendo. {p:0.3}Este puesto no se abandona.' },
+    { say: 'firion', e: 'angry', t: 'Doce noches sin dormir y seguís viniendo. {p:0.3}Este puesto no se abandona.' },
     { emote: 'kaelen', icon: '!', time: 0.8 },
     { say: 'kaelen', e: 'angry', t: '¡Está solo contra todas! {p:0.3}¡Vamos!' },
     { move: 'kaelen', to: [29, 8.5], run: true },
@@ -12730,16 +12714,11 @@ void main(){
     { set: 'cabo.firion' },
     { refresh: true },
     { say: 'firion', e: 'neutral', t: 'Gracias. {p:0.4}Firion, de la Guardia del Vigía. {p:0.3}La guardia entera, a día de hoy.' },
-    { say: 'kaelen', e: 'neutral', t: 'Kaelen, de Bruma Salada. {p:0.3}Ella es Elara, aprendiz de Ilun. {p:0.3}Y él…' },
-    { say: 'flint', e: 'happy', t: 'Flint. {p:0.3}Herrero. {p:0.4}El que arregla lo que vosotros los guardias rompéis.' },
-    { say: 'firion', e: 'neutral', t: 'Anoche, a medianoche, algo subió desde el mar por la escalera de la lente. {p:0.4}Ni lo vi. {p:0.3}Solo sentí el frío… {p:0.3}y la luz se fue.' },
-    { say: 'firion', e: 'sad', t: 'Al apagarse el Ojo, la reja de la torre se cerró sola. {p:0.4}El mecanismo es más viejo que la guardia. {p:0.3}Y yo no sé abrirlo.' },
-    { say: 'elara', e: 'neutral', t: 'En Bruma Salada pasó lo mismo. {p:0.4}Kaelen recuperó la luz con su lanza.' },
+    { say: 'firion', e: 'neutral', t: 'Anoche algo subió del mar por la escalera de la lente. {p:0.3}Sentí frío… {p:0.3}y la luz se fue. {p:0.3}La reja se cerró sola.' },
     { face: 'firion', dir: 'kaelen' },
-    { say: 'firion', e: 'sad', t: '…Una lanza que devuelve la luz. {p:0.4}Los libros de la guardia hablan de una así. {p:0.3}Pensé que eran cuentos.' },
+    { say: 'firion', e: 'sad', t: 'Esa lanza… {p:0.4}Los libros de la guardia hablan de una lanza que devuelve la luz. {p:0.3}Pensé que eran cuentos.' },
     { say: 'firion', e: 'neutral', t: 'El cartel del mecanismo dice: {p:0.3}«Cuando el cristal mire y la piedra pese, el Vigía abrirá».' },
-    { say: 'flint', e: 'happy', t: 'Piedra que pese. {p:0.4}Por fin un acertijo escrito para mí.' },
-    { say: 'firion', e: 'neutral', t: 'Y arriba, en la explanada, el molino de guardia. {p:0.3}Sé mover el viento: {p:0.2}es lo primero que aprende un vigía.' },
+    { say: 'firion', e: 'neutral', t: 'Y el molino de arriba lo muevo yo: {p:0.2}sé mover el viento.' },
     { say: 'none', t: 'Nueva Resonancia: {*Ráfaga*} (Firion). {p:0.3}Apaga fuegos, hace girar molinos y planea sobre huecos.' },
     { set: 'objetivo', v: 'reja' },
     { bars: false },
@@ -12749,7 +12728,6 @@ void main(){
   ];
   S['cabo.reja'] = [
     { say: 'firion', e: 'happy', t: 'Se ha abierto. {p:0.4}Doce noches mirando esa reja… {p:0.3}y la abre un pescador con un herrero.' },
-    { say: 'flint', e: 'happy', t: 'Y una aprendiz. {p:0.3}Y un guardia. {p:0.4}Somos un gremio muy completo.' },
     { toast: 'Objetivo: sube a la terraza de la lente y vuelve a encender el faro' },
   ];
   S['cabo.faro'] = [
@@ -12762,18 +12740,12 @@ void main(){
     { hour: 18.8, time: 3, wait: false },
     { cam: [33, -1], time: 2.0 },
     { say: 'firion', e: 'happy', t: '{~Arde…~} {p:0.4}El Vigía arde otra vez.' },
-    { say: 'elara', e: 'neutral', t: 'Mirad el mar. {p:0.4}La marea… {p:0.3}está retrocediendo.' },
     { cam: [20, 20], time: 2.0 },
     { say: 'none', t: 'Allá abajo, el agua se retira de la cala de los Acantilados y deja al descubierto el camino del {*Arrecife de Coral*}.' },
     { cam: [35, 1], time: 1.6 },
-    { say: 'firion', e: 'sad', t: 'Eso no me tranquiliza. {p:0.4}Al bajar la marea, el arrecife queda despierto. {p:0.3}Y en el arrecife vive {*Karkinos*}.' },
-    { say: 'kaelen', e: 'neutral', t: '¿Karkinos?' },
-    { say: 'firion', e: 'neutral', t: 'El Guardián. {p:0.4}Un cangrejo más viejo que la isla. {p:0.3}Durante siglos protegió este paso de lo que sube del Fondo.' },
+    { say: 'firion', e: 'sad', t: 'La marea baja y despierta el arrecife. {p:0.3}Allí vive {*Karkinos*}, el Guardián que protegía este paso.' },
     { say: 'firion', e: 'sad', t: 'Pero hace doce noches lo vi desde aquí. {p:0.4}Sus ojos brillaban como los de las larvas.' },
-    { say: 'elara', e: 'sad', t: 'Si el Fondo ha llegado hasta el Guardián… {p:0.4}nada impide que la marea vuelva a por los faros.' },
-    { say: 'flint', e: 'neutral', t: 'Un cangrejo gigante, poseído, más viejo que la isla. {p:0.4}Vale. {p:0.3}¿Alguien ha traído limón?' },
-    { say: 'firion', e: 'neutral', t: 'Iré con vosotros. {p:0.4}El faro arde y no necesita guardia mientras arda. {p:0.3}Lo que lo amenaza, sí.' },
-    { say: 'kaelen', e: 'happy', t: 'Bienvenido al grupo, Firion.' },
+    { say: 'firion', e: 'neutral', t: 'Iré con vosotros. {p:0.3}El faro arde solo; lo que lo amenaza, no.' },
     { set: 'objetivo', v: 'arrecife' },
     { refresh: true },
     { bars: false },
@@ -12795,11 +12767,9 @@ void main(){
     { shake: 3, time: 1.4, wait: false },
     { say: 'none', t: 'La arena tiembla. {p:0.4}Lo que parecía una roca cubierta de coral {*abre los ojos*}.' },
     { say: 'firion', e: 'sad', t: 'Karkinos… {p:0.4}Guardián. {p:0.3}¿Me recuerdas? {p:0.4}Te traía peces de niño.' },
-    { say: 'none', name: 'Karkinos', t: 'Recuerdo… {p:0.5}a un niño. {p:0.4}Y recuerdo mil mareas de silencio. {p:0.3}El Fondo me ha dado {*voz*}.' },
-    { say: 'none', name: 'Karkinos', t: 'Me promete que, cuando caigan los faros, el mar será uno solo. {p:0.4}Sin orillas. {p:0.3}Sin mañanas que vigilar.' },
-    { say: 'elara', e: 'angry', t: 'Eso no es descanso. {p:0.4}Es ahogarse.' },
+    { say: 'none', name: 'Karkinos', t: 'Recuerdo… {p:0.5}a un niño. {p:0.3}El Fondo me ha dado {*voz*}.' },
+    { say: 'none', name: 'Karkinos', t: 'Cuando caigan los faros, el mar será uno solo. {p:0.3}Sin mañanas que vigilar.' },
     { say: 'kaelen', e: 'angry', t: 'Vamos a sacarte el Fondo de dentro, Guardián. {p:0.4}Aunque tengamos que partirte la concha.' },
-    { say: 'flint', e: 'neutral', t: 'Con respeto. {p:0.3}Le partimos la concha con respeto.' },
     { heal: true },
     { say: 'none', t: 'El grupo recobra el aliento. {p:0.3}PV y PM al máximo.' },
     { battle: ['karkinos', 'pinza_izq', 'pinza_der'], at: [37, 10], once: 'jefe.karkinos', after: 'cap1.final' },
@@ -12814,15 +12784,12 @@ void main(){
     { cam: [36, 10], time: 1.0 },
     { shake: 2, time: 1.0, wait: false },
     { say: 'none', name: 'Karkinos', t: '{s:0.7}El niño… {p:0.5}de los peces… {p:0.6}Firion.' },
-    { say: 'firion', e: 'sad', t: 'Estoy aquí, Guardián.' },
     { say: 'none', name: 'Karkinos', t: 'No es el último faro… {p:0.4}el que buscan. {p:0.5}Buscan {*al que trae la luz*}. {p:0.4}Al chico… {p:0.3}de la lanza.' },
-    { say: 'none', name: 'Karkinos', t: 'Corred. {p:0.5}El Fondo… {p:0.4}no perdona… {p:0.4}que le quiten lo suyo…' },
     { flash: 0.6, color: '#bfe0ff' },
     { say: 'none', t: 'El coral del Guardián se vuelve gris, y luego blanco, y luego arena.' },
     { wait: 0.4 },
     // el mar se alza
     { shake: 6, time: 2.4, wait: false },
-    { say: 'elara', e: 'sad', t: '¿Oís eso?' },
     { cam: [40, 10], time: 0.8 },
     { say: 'none', t: '{~Una ola negra se levanta sobre el arrecife,~} {p:0.3}tan alta como el faro del Vigía.' },
     { say: 'firion', e: 'angry', t: '¡Es una marea del Fondo! {p:0.3}¡Va a por {*él*}! {p:0.3}¡Kaelen, apártate!' },
@@ -12842,12 +12809,10 @@ void main(){
     { say: 'none', t: 'Y la marea negra se retira, {p:0.4}tan deprisa como vino, {p:0.4}llevándose a Elara al Fondo.' },
     { wait: 1.0 },
     { fade: 0, time: 1.6 },
-    { say: 'flint', e: 'sad', t: '…' },
     { say: 'flint', e: 'sad', t: 'No tengo ningún chiste para esto. {p:0.5}Lo siento, chico.' },
-    { say: 'firion', e: 'sad', t: 'La marea del Fondo no mata, Kaelen. {p:0.4}Se lleva. {p:0.4}Los libros de la guardia lo dicen: {p:0.3}lo que se lleva, lo guarda.' },
-    { say: 'kaelen', e: 'sad', t: 'Me ha salvado. {p:0.5}Me ha cambiado por ella.' },
+    { say: 'firion', e: 'sad', t: 'La marea del Fondo no mata, Kaelen. {p:0.4}Lo que se lleva, lo guarda.' },
     { say: 'kaelen', e: 'angry', t: 'Entonces bajaré a buscarla. {p:0.4}Encenderé los faros que hagan falta {p:0.3}hasta que el mar me devuelva lo que es mío.' },
-    { say: 'firion', e: 'neutral', t: 'No bajarás solo. {p:0.4}Un vigía no abandona su puesto. {p:0.3}Y desde hoy, mi puesto es a tu lado.' },
+    { say: 'firion', e: 'neutral', t: 'No bajarás solo. {p:0.3}Desde hoy, mi puesto es a tu lado.' },
     { say: 'flint', e: 'neutral', t: 'Y alguien tendrá que arreglaros las lanzas cuando las rompáis contra el fondo del mar.' },
     { set: { 'cap1.fin': true, objetivo: 'cap2' } },
     { fade: 1, time: 1.4 },
@@ -12878,7 +12843,6 @@ void main(){
   T.elara_claro = [{ say: '@npc', e: 'neutral', t: 'El maestro te estaba esperando, Kaelen.' }];
   T.flint_dia = [
     { say: '@npc', e: 'happy', t: '¡Kaelen! {p:0.3}Si traes esa lanza para que le saque punta, tráela mañana. {p:0.4}Hoy tengo el yunque de mal humor.' },
-    { say: '@npc', e: 'neutral', t: 'Sí, el yunque. {p:0.3}Yo nunca estoy de mal humor. {p:0.4}Soy así de cara.' },
   ];
   T.halvard = [
     { if: 'prologo.fin', then: [
@@ -17157,12 +17121,12 @@ void main(){
   };
   // Prólogo
   cue('prologo.apertura', '{"hour":5.2}', 'vael'); // amanece en Bruma Salada
-  cue('prologo.apertura', '¿Lo has notado?', 'alerta'); // la tierra tiembla
+  cue('prologo.apertura', 'Desde anoche la tierra tiembla', 'alerta'); // la tierra tiembla
   cue('pro.faro', '{"hour":20.6', 'amenaza'); // anochece de golpe, la luz parpadea
   cue('pro.faro', 'Salen del agua', 'alerta'); // las larvas salen del mar
-  cue('pro.def2b', '"shake":4', ''); // el faro se apaga: silencio
-  cue('pro.def2b', 'Luzzz', 'amenaza'); // la Matriarca bebe la luz
-  cue('pro.def2b', 'La vieja lanza de pesca arde', 'grupo'); // la lanza despierta
+  cue('pro.def1b', '"shake":4', ''); // el faro se apaga: silencio
+  cue('pro.def1b', 'Luzzz', 'amenaza'); // la Matriarca bebe la luz
+  cue('pro.def1b', 'La vieja lanza de pesca arde', 'grupo'); // la lanza despierta
   cue('pro.def2b', 'Ha huido hacia las rocas', 'alerta'); // persecución
   cue('pro.matriarca.fin', 'La Matriarca se deshace', 'grupo'); // la luz vuelve
   // Capítulo 1
@@ -17704,7 +17668,7 @@ void main(){
     const h = document.getElementById('objHud');
     if (h && !h.hidden && h.textContent.trim()) return h.textContent.trim().replace(/^Objetivo:\s*/, '');
     const o = F.get('objetivo');
-    return (TH.objTexts && TH.objTexts[o]) || '';
+    return (TH.objTexts && TH.objTexts[o]) || (F.get('obj.for') === o && F.get('obj.txt')) || '';
   }
 
   // ---------- Personajes (dentro de la pestaña Bestiario) ----------
@@ -17742,7 +17706,7 @@ void main(){
       if (tab === 4) {
         const ob = objective(), r = rows[M.idx];
         h = '<div class="jr-obj"><b>Objetivo actual</b><span>' + esc(ob || 'Explora libremente.') + '</span></div><div class="split"><div class="list">' +
-          rows.map((x, i) => '<button type="button" class="' + rowCls(i) + '" data-act="row" data-i="' + i + '"><span>' + esc(x.j.t) + '</span>' + (F.test(x.j.done) ? '<span class="lbl">✓</span>' : '<span class="lbl">en curso</span>') + '</button>').join('') +
+          rows.map((x, i) => '<button type="button" class="' + rowCls(i) + '" data-act="row" data-i="' + i + '"><span>' + esc(x.j.t) + '</span>' + (F.test(x.j.done) ? '<span class="lbl">✓</span>' : '<span class="lbl">' + (x.j.lbl || 'en curso') + '</span>') + '</button>').join('') +
           '</div><div class="jr-txt">' + (r ? '<h4>' + esc(r.j.t) + '</h4><p>' + esc(F.test(r.j.done) ? r.j.text : r.j.intro) + '</p>' : '') + '</div></div>';
         foot = 'El diario se escribe solo a medida que avanzas.';
       } else if (tab === 5 && M.bsub !== 'mo') {
@@ -19737,13 +19701,14 @@ void main(){
     CUR = this.c; CT = t;
     ctx.save(); ctx.imageSmoothingEnabled = false; this.c.draw(ctx, t, P); ctx.restore();
     // partículas desenfocadas en primer plano (profundidad)
-    { const id = (this.id && CINE[this.id] === this.c) ? this.id : (this.id = Object.keys(CINE).find((k2) => CINE[k2] === this.c)), BK = BOKEH[id] || [255, 220, 170];
+    const LITE = !!(TH.postfx && TH.postfx.lite);
+    if (!LITE) { const id = (this.id && CINE[this.id] === this.c) ? this.id : (this.id = Object.keys(CINE).find((k2) => CINE[k2] === this.c)), BK = BOKEH[id] || [255, 220, 170];
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 7; i++) { const x = ((rnd(i + 40) * (W + 80) + t * (6 + i * 2) * (i % 2 ? 1 : -1)) % (W + 80) + W + 80) % (W + 80) - 40, y = 30 + rnd(i + 60) * 150 + Math.sin(t * 0.6 + i) * 10, r = 8 + rnd(i + 70) * 14, a2 = 0.05 + 0.04 * Math.sin(t * 1.3 + i * 2);
         const gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, css(BK, a2)); gr.addColorStop(0.7, css(BK, a2 * 0.6)); gr.addColorStop(1, css(BK, 0)); ctx.fillStyle = gr; ctx.fillRect(x - r, y - r, r * 2, r * 2); }
       ctx.restore(); }
     // resplandor (bloom): copia pequeña, se queda con las luces altas y se suma difuminada
-    try {
+    if (!LITE) try {
       if (!BL) { BL = mk(96, 54); }
       const [bc, bg] = BL; bg.globalCompositeOperation = 'copy'; bg.imageSmoothingEnabled = true; bg.drawImage(ctx.canvas, OFF, 0, W, H, 0, 0, 96, 54);
       bg.globalCompositeOperation = 'multiply'; bg.drawImage(bc, 0, 0); bg.drawImage(bc, 0, 0);
@@ -19809,8 +19774,8 @@ void main(){
     if (before) a.splice(i, 0, ...ops); else a.splice(i, 1, ...ops);
   };
   // Prólogo
-  put('pro.def2b', 'se ha apagado', [{ cine: 'apagon' }], true);
-  put('pro.def2b', 'La vieja lanza de pesca arde', [{ cine: 'lanza' }]);
+  put('pro.def1b', 'se ha apagado', [{ cine: 'apagon' }], true);
+  put('pro.def1b', 'La vieja lanza de pesca arde', [{ cine: 'lanza' }]);
   put('pro.matriarca.fin', 'La Matriarca se deshace en espuma negra', [{ cine: 'matriarca' }]);
   put('pro.matriarca.fin', 'La luz sube por la torre', [{ cine: 'faro_alba' }]);
   // Capítulo 1: la marea se lleva a Elara
@@ -20218,8 +20183,9 @@ void main(){
   // Cap. 2 · Bosque · Luz
   add('bosque', [
     { id: 'r1', type: 'runa', c: 18, r: 7 }, { id: 'r2', type: 'runa', c: 20, r: 7 }, { id: 'r3', type: 'runa', c: 22, r: 7 },
-    pista(18, 6, 'Raíces de luz sellan el claro. {p:0.3}«Tres runas duermen en la tierra.» {p:0.3}(Pulsa 2 cerca de ellas: Luz.)'),
-    seal('bosque', [17, 2, 3, 3], 'r1&r2&r3', 'jefe.madre'),
+    { id: 'p1', type: 'plate', c: 24, r: 7 }, { id: 'b1', type: 'block', c: 27, r: 7, mover: true },
+    pista(18, 6, 'Raíces de luz sellan el claro. {p:0.3}«Tres runas duermen en la tierra, y la cuarta pide peso.» {p:0.3}(2: Luz en las runas · 1: Mover el bloque a la placa.)'),
+    seal('bosque', [17, 2, 3, 3], 'r1&r2&r3&p1', 'jefe.madre'),
   ]);
   // Cap. 3 · Ruinas · Mover + Luz
   add('ruinas', [
@@ -20229,9 +20195,9 @@ void main(){
   ]);
   // Cap. 4 · Ciudad (pasado) · Brisa
   add('ciudad', [
-    { id: 'l1', type: 'llama', c: 19, r: 14 }, { id: 'l2', type: 'llama', c: 21, r: 14 },
-    pista(18, 13, 'La puerta del templo solo se abre en penumbra. {p:0.3}(Pulsa 3 mirando a los braseros: Brisa.)'),
-    seal('ciudad', [16, 2, 3, 3], 'l1&l2', 'jefe.crono'),
+    { id: 'l1', type: 'llama', c: 19, r: 14 }, { id: 'l2', type: 'llama', c: 21, r: 14 }, { id: 'r1', type: 'runa', c: 23, r: 14 },
+    pista(18, 13, 'La puerta del templo se abre en penumbra… {p:0.3}y con una sola marca encendida. {p:0.3}(3: Brisa en los braseros · 2: Luz en la runa.)'),
+    seal('ciudad', [16, 2, 3, 3], 'l1&l2&r1', 'jefe.crono'),
   ], 'past');
   // Cap. 5 · Biblioteca (presente) · Brisa + Luz
   add('biblioteca', [
@@ -20241,9 +20207,9 @@ void main(){
   ], 'present');
   // Cap. 6 · Hondaroca · Congelar
   add('hondaroca', [
-    { id: 'c1', type: 'charco', c: 19, r: 10 }, { id: 'c2', type: 'charco', c: 21, r: 10 },
-    pista(18, 9, 'El paso al Coloso está sellado por agua viva. {p:0.3}(Pulsa 4 frente a los charcos: Congelar.)'),
-    seal('hondaroca', [0, 0, 0, 0], 'c1&c2', 'jefe.coloso'),
+    { id: 'c1', type: 'charco', c: 19, r: 10 }, { id: 'c2', type: 'charco', c: 21, r: 10 }, { id: 'l1', type: 'llama', c: 23, r: 10 },
+    pista(18, 9, 'El paso al Coloso está sellado por agua viva y una brasa que no se apaga. {p:0.3}(4: Congelar los charcos · 3: Brisa en la brasa.)'),
+    seal('hondaroca', [0, 0, 0, 0], 'c1&c2&l1', 'jefe.coloso'),
   ]);
   // Cap. 7 · Torre · Congelar + Brisa
   add('torre', [
@@ -21219,6 +21185,487 @@ void main(){
       text: 'Venciste a los cuatro maestros y al campeón Orión. Eres el Campeón de las Mareas.' });
     FA.J.push({ t: 'Cocina y pesca', if: { any: ['pesca.total', 'cocina.platos'] }, done: 'receta.banquete', get intro() { return 'Recetas aprendidas: ' + TH.cook.known().length + '/' + Object.keys(D.recipes).length + '. Peces pescados: ' + (F.get('pesca.total') || 0) + '. Platos cocinados: ' + (F.get('cocina.platos') || 0) + '. Pesca en las redes junto al agua y cocina en cualquier hoguera.'; },
       get text() { return 'Aprendiste el Banquete del alba, la mejor receta de Thalyria. Recetas: ' + TH.cook.known().length + '/' + Object.keys(D.recipes).length + '.'; } });
+  }
+})();
+
+</script>
+  <script>/* data/archivo.js */
+// Fase 3 · Capítulo 5: el Archivo Hundido, bajo la Biblioteca de las Dos Épocas. 26×18, tres salas de este a oeste.
+// Sala 1: el reloj de arena y la palanca del pasado que vacía la galería inundada del presente.
+// Sala 2: el río de tinta; en el pasado se planta una semilla y en el presente sus raíces lo cruzan.
+// Sala 3: la Llave de la Cámara, que abre la sala del Primer Abisal.
+// Enemigos nuevos: Tintero vivo y Página errante.
+(function () {
+  'use strict';
+  const TH = window.TH, D = TH.data, PAST = 'epoca.archivo=past', NOW = 'epoca.archivo=present';
+  const S = (D.scripts = D.scripts || {});
+
+  // ---------------- enemigos ----------------
+  Object.assign(D.enemies, {
+    tintero: { name: 'Tintero vivo', sprite: 'tintero', hp: 720, atk: 50, def: 22, mag: 66, res: 30, spd: 9, exp: 340, gold: 130, markH: 22,
+      weak: { Fuego: 1.4, Luz: 1.25 }, resist: { Agua: 0.4, Luna: 0.8 }, drops: [{ item: 'tinta_viva', chance: 0.5 }],
+      actions: { mancha: { name: 'Mancha de tinta', kind: 'mag', power: 1.15, target: 'one', pick: 'weakest' }, derrame: { name: 'Derrame', kind: 'mag', power: 0.9, target: 'all', fx: 'wave' } },
+      ai: [{ act: 'derrame', every: 3 }, { act: 'mancha' }] },
+    pagina: { name: 'Página errante', sprite: 'pagina', hp: 480, atk: 60, def: 16, mag: 40, res: 18, spd: 21, exp: 280, gold: 100, flying: true, markH: 30,
+      weak: { Fuego: 1.6, Corte: 1.2 }, resist: { Impacto: 0.7 }, drops: [{ item: 'tonico_plus', chance: 0.3 }],
+      actions: { filo: { name: 'Filo de papel', kind: 'phys', power: 1.05, target: 'one' }, hojas: { name: 'Remolino de hojas', kind: 'phys', power: 0.75, target: 'all' } },
+      ai: [{ act: 'hojas', every: 2 }, { act: 'filo' }] },
+  });
+  TH.foeVariant('tintero', 'larva', 200, 0.7, 0.55, '#02040e');
+  TH.foeVariant('pagina', 'polilla', 35, 0.35, 1.25, '#2a1e10');
+
+  // ---------------- escenas ----------------
+  S['cap5.archivo_pista'] = [
+    { say: 'firion', e: 'neutral', t: 'La cámara del fondo está sellada con un cerrojo de bronce. {p:0.3}Sin llave no pasamos.' },
+    { say: 'elara', e: 'neutral', t: 'La copista hablaba de un archivo bajo la biblioteca. {p:0.3}Al oeste, junto a la escalera de servicio.' },
+  ];
+  S['cap5.archivo_entra'] = [
+    { say: 'flint', e: 'sad', t: 'Huele a papel mojado y a siglos. {p:0.3}Mi abuelo decía que los libros también se ahogan.' },
+    { say: 'kaelen', e: 'neutral', t: 'Aquí abajo también hay un reloj de arena. {p:0.3}Lo que hagamos ayer cambiará el archivo de hoy.' },
+  ];
+  S['cap5.archivo_llave'] = [
+    { say: 'none', name: 'Atril del archivero', t: 'Sobre el atril, una llave de bronce y una página que no se ha mojado nunca.' },
+    { say: 'elara', e: 'sad', t: '«Para quien llegue después: la cámara guarda lo que yo no supe cerrar.» {p:0.4}Firmado: A.' },
+    { say: 'kaelen', e: 'neutral', t: 'A. de Aurelia. {p:0.3}Hasta aquí abajo nos ha dejado algo.' },
+    { set: 'archivo.fin' },
+    { toast: 'Conseguido: Llave de la Cámara' },
+  ];
+
+  // ---------------- mapa ----------------
+  D.maps.archivo = {
+    id: 'archivo', name: 'Archivo Hundido', sub: 'Biblioteca de las Dos Épocas',
+    w: 26, h: 18, baseHeight: 1, baseTerrain: 'r', epochFlag: 'cap4.regla',
+    heightRects: [
+      [0, 0, 26, 1, 3], [0, 17, 26, 1, 3], [0, 0, 1, 18, 3], [25, 0, 1, 8, 3], [25, 11, 1, 7, 3],
+      [16, 1, 1, 7, 3], [16, 11, 1, 6, 3], // muro entre la sala 1 y la 2 (paso en filas 8–10)
+    ],
+    terrainRects: [[8, 1, 2, 16, '~'], [17, 8, 8, 3, 'p'], [10, 8, 6, 3, 'p'], [1, 8, 7, 3, 'p']],
+    tiles: [], props: [],
+    epochs: {
+      past: {
+        zones: [{ rect: [0, 0, 26, 18], tint: [1.16, 1.02, 0.8] }],
+        terrainRects: [[18, 2, 6, 5, 'f'], [2, 2, 5, 5, 'f']],
+        props: [['lamp', 18, 2], ['lamp', 23, 2], ['lamp', 18, 15], ['lamp', 23, 15], ['crate', 12, 3], ['barrel', 14, 3], ['lamp', 2, 2], ['lamp', 6, 2], ['altar', 4, 4]],
+        chests: [{ id: 'archivo_pasado', c: 14, r: 15, give: 'tomo_luna' }],
+      },
+      present: {
+        zones: [{ rect: [0, 0, 26, 18], tint: [0.66, 0.74, 1.05] }, { rect: [8, 1, 2, 16], tint: [0.4, 0.4, 0.75] }],
+        terrainRects: [[18, 2, 6, 5, 's'], [2, 2, 5, 5, 's']],
+        props: [['gem2', 18, 2], ['gem', 23, 2], ['coral', 18, 15], ['rock', 23, 15], ['rock', 12, 3], ['gem2', 6, 2], ['altar', 4, 4]],
+        pickups: [{ id: 'archivo_semilla', c: 22, r: 14.6, give: 'semilla' }],
+        chests: [{ id: 'archivo_presente', c: 2, r: 15, give: 'eco:eco_archivo' }],
+        signs: [{ c: 4, r: 5.4, name: 'Atril del archivero', script: 'cap5.archivo_llave', if: '!archivo.fin' }],
+      },
+    },
+    epochStart: 'present',
+    npcs: [],
+    start: { c: 23.6, r: 9.6 },
+    exits: [{ rect: [25, 8, 1, 3], to: 'biblioteca', entry: 'oeste' }],
+    entries: { este: { c: 23.6, r: 9.6, dir: 'left' } },
+    foes: [
+      { group: ['tintero', 'pagina'], patrol: [[18, 13], [23, 13]], sight: 4.5, if: NOW },
+      { group: ['pagina', 'pagina'], patrol: [[11, 4], [14, 6]], sight: 4.5, if: NOW },
+      { group: ['tintero', 'tintero'], patrol: [[11, 13], [14, 14]], sight: 4.5, if: NOW },
+      { group: ['tintero', 'sombra'], patrol: [[2, 12], [6, 14]], sight: 4.5, if: NOW },
+      { group: ['pagina', 'polilla_eterna'], patrol: [[18, 4], [22, 5]], sight: 4.5, if: PAST },
+    ],
+    triggers: [{ rect: [21, 8, 3, 3], once: 'cap5.archivo_entra', script: 'cap5.archivo_entra', cinematic: true }],
+    signs: [
+      { c: 21, r: 6, text: 'Bajo el reloj, alguien grabó: «El agua de hoy obedece a la palanca de ayer».' },
+      { c: 11, r: 7, text: '«Lo que se siembra ayer florece mañana.» {p:0.3}La tierra blanda junto al río espera una semilla.' },
+    ],
+    puzzle: [
+      { id: 'reloj', type: 'stele', c: 20.5, r: 4 },
+      // sala 1 → 2: en el pasado, la palanca; en el presente, la galería se vacía
+      { id: 'palanca', type: 'lever', c: 19, r: 12, epoch: 'past' },
+      { id: 'galeria', type: 'pool', c: 16, r: 8, w: 1, h: 3, level: '!palanca', dry: true, epoch: 'present' },
+      { id: 'cerrojo', type: 'gate', c: 16, r: 8, w: 1, h: 3, open: 'f:nunca', epoch: 'past' },
+      // sala 2 → 3: semilla en el pasado, raíces que cruzan el río en el presente
+      { id: 'semilla', type: 'seed', c: 11, r: 11, epoch: 'past' },
+      { id: 'roble', type: 'tree', c: 11, r: 11, when: 'semilla', bridge: [[9, 12], [8, 12]], epoch: 'present' },
+    ],
+  };
+
+  // Eco que se gana en el archivo
+  D.ecos.eco_archivo = { id: 'eco_archivo', name: 'Eco del Archivo', el: 'Luna', color: '#c8b8ff', stats: { mag: 3, res: 2 }, desc: 'Una página que recuerda todo lo que se escribió en ella.',
+    release: { name: 'Palabra olvidada', kind: 'mag', power: 1.3, types: ['Luna', 'Luz'], area: 'all', desc: 'Una frase antigua cae sobre todos los enemigos.' } };
+
+  // ---------------- conexión con la biblioteca ----------------
+  const B = D.maps.biblioteca;
+  if (B) {
+    B.exits = (B.exits || []).concat([{ rect: [0, 12, 1, 2], to: 'archivo', entry: 'este' }]);
+    B.entries.oeste = { c: 1.6, r: 12.6, dir: 'right' };
+    B.triggers = (B.triggers || []).concat([{ rect: [12, 15, 11, 4], once: 'cap5.archivo_pista', if: ['epoca.biblioteca=present', 'cap5.varek', '!archivo.fin', '!jefe.abisal'], script: 'cap5.archivo_pista', cinematic: true }]);
+    // la sala del Primer Abisal espera a la llave (o al modo sin puzles)
+    const t = B.triggers.find((x) => x.script === 'cap5.abisal');
+    if (t) t.if = [].concat(t.if || [], { any: ['archivo.fin', 'fd.skip'] });
+    const boss = (B.foes || []).find((f) => f.group && f.group[0] === 'abisal');
+    if (boss) boss.if = [].concat(boss.if || [], { any: ['archivo.fin', 'fd.skip'] });
+    B.signs = (B.signs || []).concat([{ c: 2, r: 11.6, text: 'Escalera de servicio: baja al Archivo.' }]);
+  }
+})();
+
+</script>
+  <script>/* data/fase2.js */
+// Fase 2 · Profundidad de combate: técnicas nuevas (por nivel y en las hogueras), un Eco, un combo y un objeto
+// único que se ganan con la pesca, la cocina y el juego de Mareas.
+(function () {
+  'use strict';
+  const TH = window.TH, D = TH.data, SK = D.skills, F = TH.flags;
+  const add = (who, o) => { if (SK[who] && !SK[who].some((s) => s.id === o.id)) SK[who].push(o); };
+
+  // ---- Flint: control de grupo y fuerza en área ----
+  add('flint', { id: 'yunque_caido', name: 'Yunque caído', mp: 7, kind: 'phys', power: 1.25, types: ['Impacto'], area: 'circle', r: 24, stun: 0.35, lv: 12, desc: 'Deja caer el martillo como un yunque. Puede aturdir a los que alcanza.' });
+  add('flint', { id: 'chispas', name: 'Lluvia de chispas', mp: 10, kind: 'phys', power: 0.95, types: ['Fuego', 'Impacto'], area: 'all', req: 'arco.flint', nuevo: true, desc: 'Golpea el yunque del abuelo y llueven chispas sobre todos.' });
+  // ---- Oslo: apoyo del grupo ----
+  add('oslo', { id: 'fondeo_ancla', name: 'Ancla al fondo', mp: 6, kind: 'phys', power: 1.15, types: ['Impacto', 'Agua'], area: 'line', stun: 0.3, desc: 'Arrastra el ancla en línea recta. Puede aturdir.' });
+  add('oslo', { id: 'agua_casa', name: 'Agua de casa', mp: 9, kind: 'heal', power: 0.28, eco: true, shield: true, area: 'allies', types: [], req: 'arco.oslo', nuevo: true, desc: 'Cura un 28 % al grupo y lo protege del siguiente golpe.' });
+  // ---- Kaelen, Elara y Firion: una o dos más ----
+  add('kaelen', { id: 'lanzada_cruz', name: 'Lanzada en cruz', mp: 8, kind: 'phys', power: 1.15, types: ['Corte', 'Luz'], area: 'cone', lv: 15, desc: 'La lanza dibuja una cruz de luz en abanico.' });
+  add('elara', { id: 'eclipse_lunar', name: 'Eclipse lunar', mp: 9, kind: 'mag', power: 1.05, types: ['Luna'], area: 'all', lv: 14, desc: 'La luna tapa al sol un instante sobre todos los enemigos.' });
+  add('elara', { id: 'bruma_sueno', name: 'Bruma del sueño', mp: 7, kind: 'mag', power: 0.6, types: ['Agua', 'Luna'], area: 'cone', stun: 0.5, lv: 20, desc: 'Una niebla que adormece. A menudo aturde a los alcanzados.' });
+  add('firion', { id: 'faro_ciego', name: 'Faro cegador', mp: 9, kind: 'mag', power: 0.85, types: ['Luz'], area: 'all', stun: 0.2, lv: 17, desc: 'Abre la lámpara del vigía de golpe. Puede aturdir.' });
+
+  // ---- recompensas de los extras ----
+  D.ecos.eco_marea = { id: 'eco_marea', name: 'Eco de la Marea Viva', el: 'Agua', color: '#5ad0ff', stats: { hp: 20, spd: 2 }, desc: 'Lo trajo el anzuelo después de tantos peces. Sabe a sal y a casa.',
+    release: { name: 'Marea viva', kind: 'mag', power: 1.5, types: ['Agua'], area: 'cone', desc: 'Una ola en abanico que arrastra a los enemigos.' } };
+  D.combos.push({ id: 'hoguera', name: 'Hoguera compartida', who: ['elara', 'flint'], cost: 1, kind: 'mag', power: 1.2, types: ['Fuego', 'Luz'], area: 'all', heal: 0.35, req: 'premio.cocina', desc: 'Lo aprendido junto al fuego: daña a todos y cura al grupo.' });
+  D.items.tablero_capitan = { id: 'tablero_capitan', name: 'Tablero del capitán', type: 'acc', price: 0, stats: { spd: 3, mag: 3 }, fx: { startCombo: 80, comboUp: 1.2 }, desc: 'Ganado en Mareas. Quien piensa tres jugadas por delante empieza el combate con ventaja.' };
+
+  const PREMIOS = [
+    { flag: 'pesca.total', n: 8, key: 'premio.pesca', give: () => TH.party.giveEco('eco_marea'), msg: 'Ocho capturas: ganas el Eco de la Marea Viva' },
+    { flag: 'cocina.platos', n: 5, key: 'premio.cocina', give: () => {}, msg: 'Cinco platos cocinados: Elara y Flint aprenden el combo Hoguera compartida' },
+    { flag: 'mareas.victorias', n: 3, key: 'premio.mareas', give: () => TH.party.add('tablero_capitan', 1), msg: 'Tres victorias en Mareas: ganas el Tablero del capitán' },
+  ];
+  const say = (m) => { try { TH.sfx('level'); TH.ui.toast(m); } catch (e) { /* sin interfaz */ } };
+  const add0 = F.add.bind(F), set0 = F.set.bind(F);
+  F.add = function (k, n) {
+    const v = add0(k, n);
+    for (const p of PREMIOS) if (p.flag === k && v >= p.n && !F.get(p.key)) { set0(p.key, true); p.give(); say(p.msg); }
+    return v;
+  };
+  // técnicas que se ganan en las charlas de hoguera
+  F.set = function (k, val) {
+    const had = F.get(k);
+    set0(k, val);
+    if (!had && F.get(k)) for (const [who, list] of Object.entries(SK)) for (const s of list) if (s.nuevo && s.req === k) say(TH.chars.defs[who].name + ' aprende ' + s.name);
+  };
+})();
+
+</script>
+  <script>/* data/balance.js */
+// Fase 1 · Combate justo. Ajustes de jefes calculados con las fórmulas del combate
+// (golpe del jefe frente al enemigo normal más fuerte de su capítulo y rondas para vencerlo).
+(function () {
+  'use strict';
+  const E = window.TH.data.enemies;
+  const set = (k, o) => { if (E[k]) Object.assign(E[k], o); };
+
+  // Capítulo 2 · Lobo alfa: era el jefe más flojo del juego (9 % de la vida del grupo por turno, 4–5 rondas)
+  set('lobo_alfa', { hp: 1100, atk: 34, mag: 24 });
+
+  // Capítulo 2 · Madre del Bosque: ya es la que más pega; el problema era la duración (unas 14 rondas con tres)
+  set('madre', { hp: 2000 });
+
+  // Capítulo 3 · Varek: 560 PV caían en menos de dos rondas. Ahora es un duelo de verdad con segunda fase
+  if (E.varek) {
+    const V = E.varek;
+    Object.assign(V, { hp: 1700, atk: 40, def: 16, mag: 32, res: 14, exp: 600 });
+    Object.assign(V.actions, {
+      marea: { name: 'Marea negra', kind: 'mag', power: 1.15, target: 'all', fx: 'wave' },
+      ancla: { name: 'Golpe de ancla', kind: 'phys', power: 1.3, target: 'one', pick: 'weakest' },
+    });
+    V.ai = [{ act: 'negro', every: 3 }, { act: 'guardia', if: 'self<0.7', cooldown: 5 }, { act: 'tajo' }];
+    const ph2 = V.phases && V.phases.find((p) => p.at === 0.5);
+    if (ph2) {
+      ph2.ai = [{ act: 'marea', every: 3 }, { act: 'ancla', every: 2 }, { act: 'guardia', if: 'self<0.25', cooldown: 6 }, { act: 'negro' }];
+      ph2.dialog.push({ name: 'Firion', t: '¡El agua le obedece! {p:0.3}¡Cuidado, va a por el más débil!' });
+    }
+  }
+
+  // Capítulo 4 · Cronoguardia: pegaba la mitad que una Sombra abisal
+  set('cronoguardia', { atk: 56, mag: 54 });
+
+  // Capítulo 7 · Coloso de guerra: pegaba menos que los faroles de su propio capítulo
+  set('coloso_guerra', { hp: 4800, atk: 80, mag: 78 });
+})();
+
+</script>
+  <script>/* data/fase4.js */
+// Fase 4 · Historia y personajes.
+// 1. El rescate de Elara cuesta algo: vuelve sin su luz de luna (sin técnicas de Luna) hasta que se enciende el último faro (cap. 3).
+// 2. Oslo antes del capítulo 7: en el muelle de Hondaroca (cap. 6) defiende su barca con el grupo y cuenta su historia.
+// 3. Firion y Varek, la víspera del capítulo 8: la última guardia junto a la Torre.
+// 4. Epílogo: Oriel recita la tercera línea de la profecía y el sur empieza a girar (gancho del postgame).
+(function () {
+  'use strict';
+  const TH = window.TH, D = TH.data, S = D.scripts, SK = D.skills;
+  const SIN = 'elara.sinluna';
+
+  // busca la operación cuyo texto contiene `sub` y devuelve su índice
+  const at = (key, sub) => { const a = S[key]; if (!a) return -1; return a.findIndex((o) => JSON.stringify(o).indexOf(sub) >= 0); };
+  const put = (key, sub, ops, before) => { const i = at(key, sub); if (i < 0) { console.warn('fase4: sin gancho', key, sub); return; } S[key].splice(before ? i : i + 1, 0, ...ops); };
+  const swap = (key, sub, t) => { const i = at(key, sub); if (i < 0) { console.warn('fase4: sin línea', key, sub); return; } S[key][i].t = t; };
+
+  // ======================================================================
+  // 1 · Elara vuelve sin luna
+  // ======================================================================
+  for (const s of SK.elara || []) if ((s.types || []).indexOf('Luna') >= 0) s.off = SIN;
+  for (const c of D.combos || []) if (c.who.indexOf('elara') >= 0 && (c.types || []).indexOf('Luna') >= 0) c.off = SIN;
+
+  put('cap2.madre', '{*Elara*} vuelve al grupo.', [
+    { set: SIN },
+    { say: 'none', t: 'Elara apenas se tiene en pie. {p:0.4}La luz que la Madre le bebió no ha vuelto con ella.' },
+  ]);
+  put('cap2.fin', 'Solo llega tarde.', [
+    { say: 'elara', e: 'sad', t: 'Kaelen… {p:0.4}llamo a la luna y no contesta. {p:0.3}La Madre se bebió mi luz, {p:0.3}y lo que quedaba se lo guardó el Fondo.' },
+    { say: 'firion', e: 'neutral', t: '¿Volverá?' },
+    { say: 'elara', e: 'neutral', t: 'No lo sé. {p:0.4}El agua todavía me obedece. {p:0.3}Tendrá que bastar.' },
+    { toast: 'Elara ha perdido su luz de luna: no puede usar técnicas de Luna' },
+  ]);
+  put('cap2.llegada', 'Sigamos ese hilo.', [
+    { say: 'firion', e: 'neutral', t: 'Sin ella no tenemos quien cure. {p:0.3}Gasta los tónicos con cabeza, Kaelen.' },
+  ]);
+  put('cap3.llegada', 'escaleras que suben a ninguna parte', [
+    { say: 'elara', e: 'sad', t: 'Aquí tampoco la oigo. {p:0.4}Ni la luna, ni nada. {p:0.3}Es como tener frío por dentro.' },
+  ]);
+  put('cap3.fin', '"set":"cap3.faro"', [
+    { flash: 0.7, color: '#d8e0ff' },
+    { say: 'none', t: 'La luz del faro baja por la escalera como agua… {p:0.4}y se enreda en el pelo blanco de Elara.' },
+    { emote: 'elara', icon: '!', time: 0.8 },
+    { say: 'elara', e: 'happy', t: 'La oigo. {p:0.5}Kaelen, {p:0.3}la luna… {p:0.4}ha vuelto.' },
+    { say: 'kaelen', e: 'happy', t: 'Bienvenida otra vez.' },
+    { say: 'elara', e: 'happy', t: 'Esta vez, entera.' },
+    { set: SIN, v: false },
+    { toast: 'Elara recupera su luz de luna: vuelven sus técnicas de Luna' },
+  ]);
+  // selector de capítulos: el capítulo 3 empieza aún sin luna
+  if (D.chapters.cap3) D.chapters.cap3.flags = Object.assign({}, D.chapters.cap3.flags, { [SIN]: true });
+
+  // ======================================================================
+  // 2 · Oslo en Hondaroca (capítulo 6)
+  // ======================================================================
+  D.items.nudo_barquero = { id: 'nudo_barquero', name: 'Nudo de barquero', type: 'acc', price: 0, stats: { hp: 40, def: 4, res: 4 }, desc: 'Oslo lo ató con una sola mano. Dice que no se ha soltado nunca.' };
+  const H = S['cap6.hondaroca'];
+  if (H) {
+    const i = H.findIndex((o) => o.bars === false);
+    const tail = H.splice(i); // final original: barras, cámara libre, objetivo y guardado
+    H.push(
+      { cam: [18, 20], time: 1.2 },
+      { say: 'none', t: 'En el muelle, una barca enorme carga a los últimos vecinos de las casas anegadas. {p:0.4}Algo grande se mueve bajo ella.' },
+      { shake: 3, time: 1.0, wait: false },
+      { say: 'none', name: 'Barquero', t: '{~¡Eh, los de la lanza!~} {p:0.4}¡Echadme una mano, que estas bichas me quieren volcar la barca!' },
+      { say: 'kaelen', e: 'happy', t: '¡Oslo!' },
+      { roster: ['kaelen', 'oslo', 'elara', 'flint'] },
+      { level: 'oslo', lv: 19 },
+      { say: 'none', t: '{*Oslo*} lucha junto al grupo.' },
+      { battle: ['medusa_reina', 'medusa'], once: 'cap6.oslo', after: 'cap6.oslo2' },
+    );
+    S['cap6.oslo2'] = [
+      { bars: true },
+      { refresh: true },
+      { say: 'oslo', e: 'happy', t: 'Cuarenta años en el mar, {p:0.3}y nunca me habían querido volcar unas medusas con corona. {p:0.4}Gracias, Alteza.' },
+      { say: 'flint', e: 'neutral', t: 'Oslo, ¿qué haces tan al norte?' },
+      { say: 'oslo', e: 'neutral', t: 'Encargos. {p:0.4}El mar subió en una noche y medio Hondaroca se quedó en los tejados. {p:0.3}Llevo tres días remando de la sierra a la costa.' },
+      { say: 'elara', e: 'sad', t: '¿Tres días sin dormir?' },
+      { say: 'oslo', e: 'happy', t: 'Dormir es para quien no tiene encargos, pequeña.' },
+      { emote: 'oslo', icon: '?', time: 0.9 },
+      { say: 'oslo', e: 'sad', t: '…Tienes los ojos de alguien que crucé una vez. {p:0.4}Una niña con fiebre, hace muchos años.' },
+      { say: 'elara', e: 'neutral', t: '¿Quién era?' },
+      { say: 'oslo', e: 'neutral', t: 'Otro día te lo cuento. {p:0.3}Los barqueros cobramos las historias por adelantado.' },
+      { say: 'kaelen', e: 'neutral', t: '¿Nunca te cansas, Oslo?' },
+      { say: 'oslo', e: 'sad', t: 'Hace cuarenta años, en mitad de una tormenta, me hundí. {p:0.4}Una mujer hecha de luz me sacó del agua. {p:0.3}«Rema», me dijo. {p:0.3}«Te quedan encargos.»' },
+      { say: 'oslo', e: 'neutral', t: 'Desde entonces no he dejado ninguno a medias. {p:0.4}Todavía no sé cuántos me quedan. {p:0.3}Por eso no me canso.' },
+      { say: 'oslo', e: 'happy', t: 'Toma, Alteza. {p:0.3}Un nudo de los míos. {p:0.4}No se suelta, como yo.' },
+      { give: 'nudo_barquero' },
+      { leave: 'oslo' },
+      { say: 'none', t: '{*Oslo*} se queda en el muelle, llevando a los vecinos de Hondaroca a tierra.' },
+      ...tail,
+    ];
+  }
+  // capítulo 7: el reencuentro ya no es una sorpresa
+  swap('cap7.inicio', '¿…Oslo? {p:0.4}¿Oslo el barquero?', '¡Oslo! {p:0.4}¿Ya has dejado en tierra a todos los de Hondaroca?');
+  swap('cap7.inicio', 'El que nos empujó hasta el Bosque.', 'Tres días remando, y todavía grita así.');
+  swap('cap7.inicio', 'Aquel encargo era vuestro.', 'Todos en tierra, Alteza. {p:0.4}Aquel encargo era de Hondaroca. {p:0.3}Este es de Lía.');
+  swap('cap7.inicio', '¡La pequeña de Lía y Taro!', '¡La pequeña de Lía y Taro! {p:0.4}Ya decía yo que esos ojos los conocía. {p:0.3}La última vez que te vi me mordiste un dedo. {p:0.3}Tenías siete años.');
+
+  // ======================================================================
+  // 3 · Firion y Varek: la última guardia (víspera del capítulo 8)
+  // ======================================================================
+  SK.firion && !SK.firion.some((s) => s.id === 'juramento') && SK.firion.push({ id: 'juramento', name: 'Juramento del vigía', mp: 10, kind: 'heal', power: 0.15, eco: true, shield: true, area: 'allies', types: [], req: 'cap8.vigilia', nuevo: true,
+    desc: 'Firion se planta delante del grupo: cura un 15 % y protege a todos del siguiente golpe.' });
+  if (D.maps.torre) D.maps.torre.npcs.push({ id: 'varek', c: 18, r: 7.6, ai: 'idle', dir: 'down', if: 'vigilia.varek' });
+  S['cap7.vigilia'] = [
+    { bars: true },
+    { fade: 1, time: 1.0 },
+    { set: 'cap8.vigilia' },
+    { hour: 22.5, time: 0.1 },
+    { place: 'firion', at: [18, 10.6], dir: 'up' },
+    { place: 'kaelen', at: [16.4, 11.6], dir: 'right' },
+    { cam: [18, 9.6] },
+    { fade: 0, time: 1.6 },
+    { say: 'none', t: 'La víspera de entrar en la Torre. {p:0.4}Los faroleros duermen. {p:0.3}Firion no.' },
+    { say: 'kaelen', e: 'neutral', t: '¿No duermes?' },
+    { say: 'firion', e: 'neutral', t: 'Un vigía hace la última guardia antes de la batalla. {p:0.4}Nos lo enseñó Varek.' },
+    { shake: 2, time: 1.0, wait: false },
+    { flash: 0.5, color: '#1a0a20' },
+    { set: 'vigilia.varek' },
+    { refresh: true },
+    { say: 'none', t: 'Del agua negra que rodea la Torre sube una figura. {p:0.4}No pisa el suelo: {p:0.3}la sostiene la marea.' },
+    { say: 'firion', e: 'angry', t: 'Capitán.' },
+    { say: 'varek', e: 'neutral', t: 'Tranquilo. {p:0.4}Esto es lo que el Fondo me deja asomar. {p:0.3}El resto ya está dentro, esperándoos.' },
+    { say: 'varek', e: 'sad', t: '¿Te acuerdas del juramento, Firion? {p:0.4}El de tu primera noche en el faro.' },
+    { say: 'firion', e: 'neutral', t: '«Mientras yo vigile, {p:0.3}nadie subirá la escalera sin que el faro lo sepa.»' },
+    { say: 'varek', e: 'sad', t: 'Yo lo rompí. {p:0.4}Bajé la escalera hasta el fondo. {p:0.5}Mañana el Abisal llevará mi cara. {p:0.3}No sé cuánto quedará de mí.' },
+    { say: 'varek', e: 'neutral', t: 'Si no queda nada, no dudes. {p:0.4}Te enseñé a no dudar.' },
+    { say: 'firion', e: 'angry', t: 'También me enseñaste a no dejar a nadie en el agua. {p:0.4}Las dos cosas a la vez, capitán. {p:0.3}Decías que un vigía puede con dos.' },
+    { say: 'varek', e: 'happy', t: 'Siempre fuiste el más terco de mis alumnos.' },
+    { say: 'varek', e: 'sad', t: 'Guarda la puerta, Firion. {p:0.5}Pase lo que pase ahí dentro, {p:0.3}guarda la puerta.' },
+    { flash: 0.5, color: '#1a0a20' },
+    { set: 'vigilia.varek', v: false },
+    { refresh: true },
+    { say: 'none', t: 'La marea se lo lleva sin hacer ruido.' },
+    { say: 'kaelen', e: 'sad', t: '¿Estás bien?' },
+    { say: 'firion', e: 'neutral', t: 'No. {p:0.4}Pero mañana lo estaré. {p:0.3}Mañana lo traigo de vuelta… {p:0.4}o le doy descanso. {p:0.3}Lo que él necesite.' },
+    { say: 'none', t: 'Firion aprende {*Juramento del vigía*}: cura al grupo y lo protege del siguiente golpe.' },
+    { fade: 1, time: 1.2 },
+    { hour: 8, time: 0.1 },
+    { fade: 0, time: 1.2 },
+  ];
+  if (S['cap8.inicio']) S['cap8.inicio'].splice(1, 0, { if: '!cap8.vigilia', then: [{ call: 'cap7.vigilia' }] });
+
+  // ======================================================================
+  // 4 · Epílogo: la tercera línea de la profecía
+  // ======================================================================
+  {
+    const E = S['final.epilogo'];
+    const i = E ? E.findIndex((o) => o.call === 'final.creditos') : -1;
+    if (i >= 0) E.splice(i, 0,
+      { fade: 1, time: 1.2 },
+      { say: 'none', t: 'Esa misma noche, en Hondaroca, Oriel aviva el fuego de la Gran Fragua.' },
+      { say: 'none', name: 'Oriel', t: '{s:0.7}«Cuando el día detenido toque a su fin, {p:0.4}el mar subirá hasta la fragua más alta. {p:0.4}Y uno del mar volverá al mar.»' },
+      { say: 'none', name: 'Oriel', t: 'Dos líneas cumplidas. {p:0.5}Queda la que nadie recita.' },
+      { say: 'none', name: 'Oriel', t: '{s:0.7}«Más hondo que el Fondo {p:0.3}duerme el que hizo el mar. {p:0.5}{*Que nadie lo despierte.*}»' },
+      { shake: 3, time: 1.6, wait: false },
+      { say: 'none', t: 'Muy al sur, donde ayer solo había olas, {p:0.4}el agua empieza a girar.' },
+      { say: 'none', name: 'Oriel', t: 'El día terminó, Alteza. {p:0.4}Y algo que dormía bajo él {*lo ha notado*}.' },
+    );
+  }
+  put('post.llegada', 'Y que abajo duerme algo más viejo que el Abisal.', [
+    { say: 'firion', e: 'neutral', t: '«Más hondo que el Fondo duerme el que hizo el mar.» {p:0.4}La tercera línea de Oriel. {p:0.3}Ya no duerme.' },
+  ]);
+})();
+
+</script>
+  <script>/* data/fase5.js */
+// Fase 5 · Comodidad.
+// · Dificultad por partida (Historia, Normal, Desafío): vida de los enemigos y daño que hacen.
+// · Capítulo y objetivo actuales en la cabecera del menú (y en el resumen de cada ranura).
+// · El diario describe cada encargo: quién, dónde, qué hace falta, progreso, pista y recompensa; y avisa de los disponibles.
+// · Aviso antes del desenlace (puerta de oro del capítulo 8), con opción de guardar una copia en otra ranura.
+(function () {
+  'use strict';
+  const TH = window.TH, D = TH.data, F = TH.flags, S = D.scripts;
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const clean = (t) => String(t || '').replace(/\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim();
+
+  // ---------------- dificultad ----------------
+  TH.dif = {
+    // id, nombre, vida de enemigos, daño recibido, descripción
+    L: [
+      ['historia', 'Historia', 0.7, 0.6, 'Combates suaves, para disfrutar de la historia'],
+      ['normal', 'Normal', 1, 1, 'La experiencia pensada para el juego'],
+      ['desafio', 'Desafío', 1.3, 1.35, 'Enemigos más duros: el timing y los combos importan'],
+    ],
+    cur(id) { const k = id || F.get('dif', 'normal'); return this.L.find((d) => d[0] === k) || this.L[1]; },
+    hp() { return this.cur()[2]; },
+    dmg() { return this.cur()[3]; },
+    label(id) { return this.cur(id)[1]; },
+    cycle() { const i = this.L.indexOf(this.cur()); const d = this.L[(i + 1) % this.L.length]; F.set('dif', d[0]); TH.ui.toast('Dificultad: ' + d[1] + ' · ' + d[4]); },
+  };
+
+  // ---------------- capítulo actual ----------------
+  const TITLES = {};
+  for (const k in S) for (const o of S[k] || []) if (o && o.chapter && o.title) {
+    const m = /^Cap[ií]tulo (\d+)$/.exec(o.chapter);
+    if (m && !TITLES[m[1]]) TITLES[m[1]] = o.title;
+  }
+  TH.chapterOf = function (fl) {
+    const g = (k) => fl && fl[k];
+    if (g('post.llegada')) return { short: 'Postgame', full: 'Postgame · El Abismo de la Crecida' };
+    if (g('juego.fin')) return { short: 'Epílogo', full: 'Tras el final · Vael tiene mañanas' };
+    for (let n = 8; n >= 2; n--) if (g('cap' + (n - 1) + '.fin')) return { short: 'Capítulo ' + n, full: 'Capítulo ' + n + (TITLES[n] ? ' · ' + TITLES[n] : '') };
+    if (g('jefe.matriarca') || g('prologo.fin')) return { short: 'Capítulo 1', full: 'Capítulo 1' + (TITLES[1] ? ' · ' + TITLES[1] : '') };
+    return { short: 'Prólogo', full: 'Prólogo · La noche en que se apagó el faro' };
+  };
+  const objective = () => {
+    const h = document.getElementById('objHud');
+    if (h && !h.hidden && h.textContent.trim()) return h.textContent.trim().replace(/^Objetivo:\s*/, '');
+    const o = F.get('objetivo');
+    return (TH.objTexts && TH.objTexts[o]) || (F.get('obj.for') === o && F.get('obj.txt')) || '';
+  };
+  TH.menuInfo = function () {
+    const ch = TH.chapterOf(F.dump()), ob = objective();
+    return '<b>' + esc(ch.full) + '</b>' + (ob ? '<span><i>Objetivo:</i> ' + esc(ob) + '</span>' : '') + '<em>' + esc(TH.dif.label()) + '</em>';
+  };
+  {
+    const st = document.createElement('style');
+    st.textContent = '.pm-info{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;padding:6px 14px 7px;font-size:12px;line-height:1.35;color:#d8d0bc;border-bottom:1px solid rgba(232,200,120,.18);background:rgba(10,14,30,.35)}' +
+      '.pm-info b{color:#f2d48a;font-weight:600}.pm-info span{flex:1 1 220px;min-width:0}.pm-info i{font-style:normal;color:#9fb8d8}.pm-info em{font-style:normal;font-size:11px;color:#8aa0b8;margin-left:auto}' +
+      '.jr-q{margin-top:8px;font-size:12px;line-height:1.45}.jr-q div{margin:2px 0}.jr-q b{color:#f2d48a;font-weight:600}';
+    document.head.appendChild(st);
+  }
+
+  // ---------------- diario: encargos con descripción completa ----------------
+  const Q = D.quests || [], FA = TH.fasea;
+  if (FA && Q.length) {
+    const need = (q) => q.need.item ? (D.items[q.need.item] ? D.items[q.need.item].name : q.need.item) : 'vencer a ' + (D.enemies[q.need.kill] ? D.enemies[q.need.kill].name : q.need.kill);
+    const where = (q) => (D.maps[q.map] && D.maps[q.map].name) || q.map;
+    const reward = (q) => (D.items[q.reward] ? D.items[q.reward].name : '') + (q.recipe && D.recipes && D.recipes[q.recipe] ? ' y la receta «' + D.recipes[q.recipe].name + '»' : '');
+    for (const j of FA.J) {
+      const q = Q.find((x) => j.t === 'Encargo · ' + x.title);
+      if (!q) continue;
+      Object.defineProperty(j, 'intro', { configurable: true, get() {
+        const p = TH.quests.progress(q);
+        return q.name + ' (' + where(q) + '): «' + clean(q.offer) + '»\n' +
+          'Qué hace falta: ' + need(q) + ' ×' + q.need.n + ' · Progreso: ' + p + '/' + q.need.n + (p >= q.need.n ? ' · ¡Listo! Vuelve a hablar con ' + q.name + '.' : '') + '\n' +
+          'Pista: ' + clean(q.wait) + '\n' +
+          'Recompensa: ' + reward(q) + '.';
+      } });
+      j.text = 'Encargo de ' + q.name + ' (' + where(q) + ') completado. ' + clean(q.thanks) + ' Recompensa: ' + reward(q) + '.';
+    }
+    // encargos que ya se pueden aceptar
+    for (const q of Q) FA.J.push({
+      t: 'Encargo disponible · ' + q.title, if: [q.avail === true ? 'prologo.claro' : q.avail, '!mq.' + q.id], done: 'nunca', lbl: 'nuevo',
+      intro: 'Aún no lo has aceptado. ' + q.name + ' espera en ' + where(q) + '. Habla con ' + q.name + ' para saber qué necesita.',
+    });
+    // la vista del diario respeta los saltos de línea
+    const st = document.createElement('style'); st.textContent = '.jr-txt p{white-space:pre-line}'; document.head.appendChild(st);
+  }
+
+  // ---------------- aviso antes del desenlace ----------------
+  const otherSlot = () => { const SV = TH.save; for (let k = 1; k < SV.N; k++) { const i = (SV.slot + k) % SV.N; if (!SV.valid(SV.read(i))) return i; } return (SV.slot + 1) % SV.N; };
+  S['aviso.final'] = [
+    { bars: true },
+    { say: 'none', name: 'Aviso', t: 'Detrás de la puerta de oro empieza el desenlace: {p:0.3}tres combates seguidos y una decisión que {*no se puede deshacer*}. {p:0.4}Después no podrás volver a este punto.' },
+    {
+      who: 'kaelen', e: 'neutral', t: '(¿Qué quieres hacer?)',
+      choice: [
+        { t: 'Guardar aquí y seguir', then: [{ save: true }, { js: () => TH.ui.toast('Partida guardada en la ranura ' + (TH.save.slot + 1)) }] },
+        { t: 'Guardar y dejar una copia en otra ranura', then: [{ save: true }, { js: () => {
+          const SV = TH.save, m = TH.scenes.registry.map, i = otherSlot();
+          const ok = SV.write(m.state(), i);
+          TH.ui.toast(ok ? 'Copia guardada en la ranura ' + (i + 1) + ': desde ahí podrás ver el otro final' : 'No se pudo guardar la copia');
+        } }] },
+        { t: 'Todavía no: quiero prepararme', then: [{ say: 'none', t: 'Cuando estés listo, acércate a la puerta de oro.' }] },
+      ],
+    },
+    { bars: false },
+  ];
+  const C = D.maps.congelada;
+  if (C) {
+    const t = (C.triggers || []).find((x) => x.script === 'cap8.puerta');
+    if (t) C.triggers.unshift({ rect: [t.rect[0], t.rect[1] + t.rect[3], t.rect[2], 1], once: 'aviso.final', if: [].concat(t.if || [], '!cap8.puerta'), script: 'aviso.final' });
   }
 })();
 
