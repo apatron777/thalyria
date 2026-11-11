@@ -910,7 +910,7 @@ void main(){
       if (!this.valid(s)) return '';
       const ch = TH.chapterOf ? TH.chapterOf(s.flags) : null, m = TH.data.maps[s.map];
       const d = s.savedAt ? new Date(s.savedAt) : null, two = (n) => String(n).padStart(2, '0');
-      const dif = TH.dif ? TH.dif.label(s.flags.dif) : '';
+      const dif = (TH.dif ? TH.dif.label(s.flags.dif) : '') + (s.flags.ngplus ? ' · Partida+' + (s.flags.ngplus > 1 ? s.flags.ngplus : '') : '');
       return [ch ? ch.short : '', m && m.name, dif, d ? d.getDate() + '/' + (d.getMonth() + 1) + ' ' + two(d.getHours()) + ':' + two(d.getMinutes()) : ''].filter(Boolean).join(' · ');
     },
   };
@@ -10083,6 +10083,14 @@ void main(){
       if (!m.loadGame()) { this.newGame(); return; }
       TH.ui.toast('Partida cargada');
     },
+    // Nueva partida+: los Ecos de la partida terminada pasan a la nueva (sin equipar) y se cuenta la vuelta
+    applyPlus(src) {
+      const P = TH.party, F = TH.flags;
+      for (const e of (src.party && src.party.ecos) || []) if (TH.data.ecos[e]) P.giveEco(e);
+      F.set('ngplus', (src.flags.ngplus || 0) + 1);
+      F.set('ngplus.ecos', P.ecos.length);
+      setTimeout(() => TH.ui.toast('Nueva partida+: conservas ' + P.ecos.length + ' Ecos (equípalos desde el menú)'), 400);
+    },
     hasSave() { return TH.save.valid(TH.save.read()); },
     // modo pruebas: el capítulo empieza con el nivel, equipo, Ecos y grupo que tendría una partida normal
     startChapter(id) {
@@ -10153,12 +10161,22 @@ void main(){
       const SV = TH.save, items = [];
       const order = [SV.slot].concat([0, 1, 2].filter((k) => k !== SV.slot));
       for (const k of order) if (SV.valid(SV.read(k))) items.push({ label: 'Continuar · Ranura ' + (k + 1), sub: SV.summary(k), act: () => { SV.use(k); TH.game.continueGame(); } });
-      items.push({ label: 'Nueva partida', sub: 'Elige ranura y dificultad', keep: () => this.slotMenu() });
+      items.push({ label: 'Nueva partida', sub: 'Elige ranura y dificultad', keep: () => { this.plus = null; this.slotMenu(); } });
+      const fin = [0, 1, 2].filter((k) => { const s = SV.read(k); return SV.valid(s) && s.flags['juego.fin']; });
+      if (fin.length) items.push({ label: 'Nueva partida+', sub: 'Vuelve a empezar conservando los Ecos de una partida terminada', keep: () => this.plusMenu(fin) });
       items.push({ label: 'Créditos', sub: '', act: () => { TH.scenes.push('title'); TH.credits.show(); } });
       if (TH.tests.on()) for (const id in TH.data.chapters) {
         const C = TH.data.chapters[id];
         items.push({ label: 'Pruebas · ' + C.name, sub: C.test, act: () => TH.game.startChapter(id) });
       }
+      this.items = items; this.i = 0; this.draw();
+    }
+    // Nueva partida+: de qué partida terminada salen los Ecos
+    plusMenu(fin) {
+      const SV = TH.save;
+      if (fin.length === 1) { this.plus = fin[0]; this.slotMenu(); return; }
+      const items = fin.map((k) => { const s = SV.read(k); return { label: 'Ecos de la ranura ' + (k + 1), sub: (s.party.ecos || []).length + ' Ecos · ' + SV.summary(k), keep: () => { this.plus = k; this.slotMenu(); } }; });
+      items.push({ label: 'Volver', sub: '', keep: () => this.mainMenu() });
       this.items = items; this.i = 0; this.draw();
     }
     slotMenu() {
@@ -10171,7 +10189,11 @@ void main(){
       this.items = items; this.i = 0; this.draw();
     }
     difMenu(k) {
-      const items = TH.dif.L.map((d) => ({ label: d[1], sub: d[4], act: () => { TH.save.use(k); TH.game.newGame(); TH.flags.set('dif', d[0]); } }));
+      const items = TH.dif.L.map((d) => ({ label: d[1], sub: d[4], act: () => {
+        const src = this.plus != null ? TH.save.read(this.plus) : null;
+        TH.save.use(k); TH.game.newGame(); TH.flags.set('dif', d[0]);
+        if (src) TH.game.applyPlus(src);
+      } }));
       items.push({ label: 'Volver', sub: '', keep: () => this.slotMenu() });
       this.items = items; this.i = 1; this.draw();
     }
@@ -21190,14 +21212,14 @@ void main(){
 
 </script>
   <script>/* data/archivo.js */
-// Fase 3 · Capítulo 5: el Archivo Hundido, bajo la Biblioteca de las Dos Épocas. 26×18, tres salas de este a oeste.
+// Fase 3 · Capítulo 5: la Cámara del Archivero, bajo la Biblioteca de las Dos Épocas. 26×18, tres salas de este a oeste.
 // Sala 1: el reloj de arena y la palanca del pasado que vacía la galería inundada del presente.
 // Sala 2: el río de tinta; en el pasado se planta una semilla y en el presente sus raíces lo cruzan.
 // Sala 3: la Llave de la Cámara, que abre la sala del Primer Abisal.
 // Enemigos nuevos: Tintero vivo y Página errante.
 (function () {
   'use strict';
-  const TH = window.TH, D = TH.data, PAST = 'epoca.archivo=past', NOW = 'epoca.archivo=present';
+  const TH = window.TH, D = TH.data, PAST = 'epoca.archivo_hundido=past', NOW = 'epoca.archivo_hundido=present';
   const S = (D.scripts = D.scripts || {});
 
   // ---------------- enemigos ----------------
@@ -21217,11 +21239,11 @@ void main(){
   // ---------------- escenas ----------------
   S['cap5.archivo_pista'] = [
     { say: 'firion', e: 'neutral', t: 'La cámara del fondo está sellada con un cerrojo de bronce. {p:0.3}Sin llave no pasamos.' },
-    { say: 'elara', e: 'neutral', t: 'La copista hablaba de un archivo bajo la biblioteca. {p:0.3}Al oeste, junto a la escalera de servicio.' },
+    { say: 'elara', e: 'neutral', t: 'La copista hablaba de la Cámara del Archivero, bajo la biblioteca. {p:0.3}Al oeste, junto a la escalera de servicio.' },
   ];
   S['cap5.archivo_entra'] = [
     { say: 'flint', e: 'sad', t: 'Huele a papel mojado y a siglos. {p:0.3}Mi abuelo decía que los libros también se ahogan.' },
-    { say: 'kaelen', e: 'neutral', t: 'Aquí abajo también hay un reloj de arena. {p:0.3}Lo que hagamos ayer cambiará el archivo de hoy.' },
+    { say: 'kaelen', e: 'neutral', t: 'Aquí abajo también hay un reloj de arena. {p:0.3}Lo que hagamos ayer cambiará esta cámara hoy.' },
   ];
   S['cap5.archivo_llave'] = [
     { say: 'none', name: 'Atril del archivero', t: 'Sobre el atril, una llave de bronce y una página que no se ha mojado nunca.' },
@@ -21232,8 +21254,8 @@ void main(){
   ];
 
   // ---------------- mapa ----------------
-  D.maps.archivo = {
-    id: 'archivo', name: 'Archivo Hundido', sub: 'Biblioteca de las Dos Épocas',
+  D.maps.archivo_hundido = {
+    id: 'archivo_hundido', name: 'Cámara del Archivero', sub: 'Biblioteca de las Dos Épocas',
     w: 26, h: 18, baseHeight: 1, baseTerrain: 'r', epochFlag: 'cap4.regla',
     heightRects: [
       [0, 0, 26, 1, 3], [0, 17, 26, 1, 3], [0, 0, 1, 18, 3], [25, 0, 1, 8, 3], [25, 11, 1, 7, 3],
@@ -21293,7 +21315,7 @@ void main(){
   // ---------------- conexión con la biblioteca ----------------
   const B = D.maps.biblioteca;
   if (B) {
-    B.exits = (B.exits || []).concat([{ rect: [0, 12, 1, 2], to: 'archivo', entry: 'este' }]);
+    B.exits = (B.exits || []).concat([{ rect: [0, 12, 1, 2], to: 'archivo_hundido', entry: 'este' }]);
     B.entries.oeste = { c: 1.6, r: 12.6, dir: 'right' };
     B.triggers = (B.triggers || []).concat([{ rect: [12, 15, 11, 4], once: 'cap5.archivo_pista', if: ['epoca.biblioteca=present', 'cap5.varek', '!archivo.fin', '!jefe.abisal'], script: 'cap5.archivo_pista', cinematic: true }]);
     // la sala del Primer Abisal espera a la llave (o al modo sin puzles)
@@ -21301,7 +21323,7 @@ void main(){
     if (t) t.if = [].concat(t.if || [], { any: ['archivo.fin', 'fd.skip'] });
     const boss = (B.foes || []).find((f) => f.group && f.group[0] === 'abisal');
     if (boss) boss.if = [].concat(boss.if || [], { any: ['archivo.fin', 'fd.skip'] });
-    B.signs = (B.signs || []).concat([{ c: 2, r: 11.6, text: 'Escalera de servicio: baja al Archivo.' }]);
+    B.signs = (B.signs || []).concat([{ c: 2, r: 11.6, text: 'Escalera de servicio: baja a la Cámara del Archivero.' }]);
   }
 })();
 
@@ -21593,6 +21615,7 @@ void main(){
   TH.chapterOf = function (fl) {
     const g = (k) => fl && fl[k];
     if (g('post.llegada')) return { short: 'Postgame', full: 'Postgame · El Abismo de la Crecida' };
+    if (g('juego.fin') && g('isla.sur')) return { short: 'Postgame', full: 'Postgame · El Abismo de la Crecida' };
     if (g('juego.fin')) return { short: 'Epílogo', full: 'Tras el final · Vael tiene mañanas' };
     for (let n = 8; n >= 2; n--) if (g('cap' + (n - 1) + '.fin')) return { short: 'Capítulo ' + n, full: 'Capítulo ' + n + (TITLES[n] ? ' · ' + TITLES[n] : '') };
     if (g('jefe.matriarca') || g('prologo.fin')) return { short: 'Capítulo 1', full: 'Capítulo 1' + (TITLES[1] ? ' · ' + TITLES[1] : '') };
@@ -21897,6 +21920,31 @@ html.mob body{overscroll-behavior:none;-webkit-touch-callout:none;position:fixed
 .mob.land.pad-c #btnB{grid-area:b}
 .mob.land.pad-c #btnA{grid-area:a;margin:0}
 .mob.land.pad-c .res-btn{top:46px}
+/* ---- combate en horizontal: el grupo en una franja baja y las órdenes en una columna estrecha, para que se vea la pelea ---- */
+.mob.land{--cl:max(8px,env(safe-area-inset-left,0px));--cr:max(8px,env(safe-area-inset-right,0px))}
+.mob.land .bt{font-size:clamp(9px,2.9vh,13px)}
+.mob.land .bt-help{top:6px;left:var(--cl);transform:none;max-width:min(38%,22em);white-space:normal;text-overflow:clip;padding:.25em .7em;font-size:.9em;line-height:1.25}
+.mob.land .bt-party{left:var(--cl);right:var(--cr);bottom:max(4px,env(safe-area-inset-bottom,0px));width:auto;max-width:none;display:flex;gap:.3em;padding:.25em;justify-content:center;background:rgba(14,11,28,.72);overflow:visible}
+.mob.land .bt-party .bt-combo{position:absolute;right:.4em;bottom:calc(100% + 3px);width:min(15em,46%);padding:.15em .4em;border-radius:6px;background:rgba(14,11,28,.8)}
+.mob.land .bt-row{flex:1 1 0;min-width:0;max-width:11.5em;min-height:0;display:grid;grid-template-columns:1.9em 1fr auto;grid-template-areas:"pt nm nm" "pt hb hn" "pt mb mn";column-gap:.3em;row-gap:.1em;padding:.15em .25em;font-size:1em}
+.mob.land .bt-row canvas{grid-area:pt;width:1.9em;height:1.9em;align-self:center}
+.mob.land .bt-row .nm{grid-area:nm;font-size:.95em;line-height:1.1}
+.mob.land .bt-row .nm small{font-size:.8em}
+.mob.land .bt-row .bars{grid-area:hb;align-self:center;height:.38em}
+.mob.land .bt-row .num{grid-area:hn;font-size:.85em;line-height:1}
+.mob.land .bt-row .bars.mp{grid-area:mb}
+.mob.land .bt-row .mpn{grid-area:mn}
+.mob.land .bt-row .pips{display:none}
+.mob.land .bt-row.res{flex:0 1 auto;max-width:7.5em;grid-template-columns:1.9em 1fr;grid-template-areas:"pt nm" "pt hn"}
+.mob.land .bt-row.res .bars,.mob.land .bt-row.res .mpn{display:none}
+.mob.land .bt-cmd{left:var(--cl);bottom:calc(4.4em + 10px);width:min(16em,34%);max-height:calc(100% - 4.4em - 52px);overflow-y:auto;overscroll-behavior:contain;padding:.25em;gap:0}
+.mob.land .bt-cmd .bt-title{font-size:1em;padding:0 .4em .15em}
+.mob.land .bt-item{min-height:26px;padding:.15em .45em;flex-wrap:wrap;row-gap:0;column-gap:.4em}
+.mob.land .bt-item span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.mob.land .bt-item small{margin-left:auto}
+.mob.land .bt-item small{font-size:.8em}
+.mob.land .bt-res{font-size:12px;max-height:92%;overflow:auto}
+.mob.land #mCtx{left:auto;right:max(10px,env(safe-area-inset-right,0px));transform:none;top:6px;min-height:36px;padding:6px 14px}
 /* título en pantallas bajas: logo a la izquierda, menú a la derecha */
 .mob.land.short .title{flex-direction:row;gap:5%}
 .mob.land.short .title .menu-list{max-height:78vh;width:min(300px,44%)}
