@@ -367,6 +367,14 @@ em.up{color:#8ee68a}em.down{color:#ff8a7a}
   'use strict';
   const TH = (window.TH = window.TH || {});
   TH.W = 384; // resolución interna
+  // móvil en horizontal: la vista se ensancha hasta la forma de la pantalla (más mundo visible, sin franjas a los lados)
+  try {
+    if (matchMedia('(pointer:coarse)').matches) {
+      const iw = innerWidth, ih = innerHeight, a = iw > ih ? iw / ih : Math.max(screen.width, screen.height) / Math.min(screen.width, screen.height);
+      if (a > 16 / 9 + 0.02) TH.W = Math.min(480, Math.round((216 * a) / 2) * 2);
+    }
+  } catch (e) { /* sin matchMedia */ }
+  TH.BASE_W = 384; TH.OFF = (TH.W - 384) / 2; // piezas dibujadas a 384 de ancho (cinemáticas, mapa del mundo) se centran
   TH.H = 216;
   TH.TS = 16; // tamaño de tile
   TH.HZ = 12; // píxeles de pantalla por nivel de altura
@@ -6227,7 +6235,7 @@ void main(){
 // Mapa del archipiélago: islas desbloqueables, puertos con nombre y viaje en barca entre ellos
 (function () {
   'use strict';
-  const TH = window.TH, W = TH.W, H = TH.H, U = TH.util;
+  const TH = window.TH, W = 384, H = TH.H, U = TH.util, OFF = TH.OFF || 0;
   const $ = (id) => document.getElementById(id);
   const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   const SEA = [[22, 46, 92], [26, 58, 108], [30, 74, 126], [38, 96, 148], [52, 124, 168], [84, 164, 190], [124, 206, 206]];
@@ -6347,7 +6355,7 @@ void main(){
     buildLabels() {
       const L = this.el.labels, D = this.D;
       L.innerHTML = '';
-      const pct = (x, y) => 'left:' + (x / W) * 100 + '%;top:' + (y / H) * 100 + '%';
+      const pct = (x, y) => 'left:' + ((x + OFF) / TH.W) * 100 + '%;top:' + (y / H) * 100 + '%';
       for (const i of D.islands) {
         const s = document.createElement('span');
         s.className = 'wm-isl' + (this.unlocked(i) ? '' : ' lock');
@@ -6440,7 +6448,8 @@ void main(){
       };
     }
 
-    render(ctx) {
+    render(ctx) { if (!OFF) return this.renderIn(ctx); ctx.save(); ctx.fillStyle = '#0a1c34'; ctx.fillRect(0, 0, TH.W, H); ctx.translate(OFF, 0); this.renderIn(ctx); ctx.restore(); }
+    renderIn(ctx) {
       const t = TH.time;
       ctx.drawImage(this.base, 0, 0);
       // oleaje: bandas de luz que se desplazan despacio
@@ -18594,7 +18603,7 @@ void main(){
 // Sustituye las cinemáticas del prólogo y de los capítulos 1 y 2; el resto siguen como estaban.
 (function () {
   'use strict';
-  const TH = window.TH, W = TH.W, H = TH.H, CINE = TH.data.cine;
+  const TH = window.TH, W = 384, H = TH.H, CINE = TH.data.cine, OFF = TH.OFF || 0;
   const cl = (k) => (k < 0 ? 0 : k > 1 ? 1 : k), sm = (k) => { k = cl(k); return k * k * (3 - 2 * k); };
   const seg = (t, a, b) => sm((t - a) / (b - a)), lerp = (a, b, k) => a + (b - a) * k;
   const rnd = (s) => { const x = Math.sin(s * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -19084,7 +19093,7 @@ void main(){
       const key = CUR.caps && CUR.caps[0] ? CUR.caps[0][2] + c : c;
       let im = SNAP.get(key);
       if (!im) { const [oc, og] = mk(W, H); const ct = CT; CT = c - 0.02; og.save(); CUR.draw(og, c - 0.02, P); og.restore(); CT = ct; im = oc; if (SNAP.size > 24) SNAP.clear(); SNAP.set(key, im); }
-      g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1 - sm(k / 0.5); g.drawImage(im, 0, 0); g.restore();
+      g.save(); g.setTransform(1, 0, 0, 1, OFF, 0); g.globalAlpha = 1 - sm(k / 0.5); g.drawImage(im, 0, 0); g.restore();
     }
   };
   // retrato insertado: franja diagonal con líneas de velocidad y el retrato a doble tamaño
@@ -19716,8 +19725,14 @@ void main(){
     motor: ['Capítulo 4', 'La Ciudad Dorada'], abisal_cae: ['Capítulo 5', 'La Biblioteca de las Dos Épocas'], coloso: ['Capítulo 6', 'La profecía del mar'], varek_ola: ['Capítulo 7', 'Los cuatro faros'], amanecer: ['Capítulo 8', 'El día que no termina'] };
   let BL = null;
   const C0 = TH.CineScene.prototype.render;
+  // vista más ancha que 384 (móvil): la cinemática va centrada, con franjas negras a los lados
   TH.CineScene.prototype.render = function (ctx) {
     if (!this.c) return;
+    if (!OFF) return this.renderIn(ctx);
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TH.W, H); ctx.translate(OFF, 0); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+    this.renderIn(ctx); ctx.restore();
+  };
+  TH.CineScene.prototype.renderIn = function (ctx) {
     const t = this.t, k = this.c.dur;
     CUR = this.c; CT = t;
     ctx.save(); ctx.imageSmoothingEnabled = false; this.c.draw(ctx, t, P); ctx.restore();
@@ -19730,7 +19745,7 @@ void main(){
     // resplandor (bloom): copia pequeña, se queda con las luces altas y se suma difuminada
     try {
       if (!BL) { BL = mk(96, 54); }
-      const [bc, bg] = BL; bg.globalCompositeOperation = 'copy'; bg.imageSmoothingEnabled = true; bg.drawImage(ctx.canvas, 0, 0, 96, 54);
+      const [bc, bg] = BL; bg.globalCompositeOperation = 'copy'; bg.imageSmoothingEnabled = true; bg.drawImage(ctx.canvas, OFF, 0, W, H, 0, 0, 96, 54);
       bg.globalCompositeOperation = 'multiply'; bg.drawImage(bc, 0, 0); bg.drawImage(bc, 0, 0);
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.32; ctx.imageSmoothingEnabled = true; ctx.drawImage(bc, -4, -4, W + 8, H + 8); ctx.restore();
     } catch (e) { /* sin bloom */ }
@@ -19769,6 +19784,16 @@ void main(){
     if (f > 0) { ctx.fillStyle = 'rgba(0,0,0,' + cl(f).toFixed(2) + ')'; ctx.fillRect(0, 0, W, H); }
   };
   TH.CineScene.prototype.render0 = C0;
+})();
+// durante las cinemáticas se ocultan el mando táctil y el botón de saltar de las escenas (la cinemática tiene el suyo)
+(function () {
+  'use strict';
+  const TH = window.TH, P = TH.CineScene.prototype, root = document.documentElement;
+  const st = document.createElement('style'); st.textContent = '.cine-on .pad,.cine-on #btnSkip{visibility:hidden!important}'; document.head.appendChild(st);
+  const e0 = P.enter, x0 = P.exit, u0 = P.update;
+  P.enter = function (d) { e0.call(this, d); root.classList.add('cine-on'); };
+  P.exit = function () { root.classList.remove('cine-on'); if (x0) x0.call(this); };
+  P.update = function (dt) { u0.call(this, dt); if (this.done) root.classList.remove('cine-on'); };
 })();
 
 </script>
@@ -21406,7 +21431,14 @@ html.mob body{overscroll-behavior:none;-webkit-touch-callout:none;position:fixed
 .mob.land .hint{display:none}
 
 /* ---- mando clásico: cruceta + A/B fijos a los lados, el juego encajado entre ellos ---- */
-.mob.land.pad-c .app{padding-left:calc(max(10px,env(safe-area-inset-left,0px)) + 136px*var(--touch,1));padding-right:calc(max(10px,env(safe-area-inset-right,0px)) + 136px*var(--touch,1))}
+.mob.land.pad-c .app{padding:0}
+.mob.land.pad-c{--cl:calc(max(10px,env(safe-area-inset-left,0px)) + 132px*var(--touch,1));--cr:calc(max(10px,env(safe-area-inset-right,0px)) + 140px*var(--touch,1))}
+.mob.land.pad-c .bt-cmd{left:var(--cl)}
+.mob.land.pad-c .bt-party{right:var(--cr)}
+.mob.land.pad-c .talk{left:var(--cl);right:var(--cr)}
+.mob.land.pad-c .pm{left:var(--cl);right:var(--cr)}
+.mob.land.pad-c .pad .dpad,.mob.land.pad-c .btns,.mob.land.pad-c.walk .stick{opacity:.78}
+.mob.land canvas{border-radius:0;box-shadow:none}
 .mob.land.pad-c .pad,.mob.land.pad-c:not(.walk) .pad{display:block}
 .mob.land.pad-c:not(.walk) .stick{display:none!important}
 .mob.land.pad-c.walk .pad .dpad{display:none!important}
