@@ -17,7 +17,7 @@ Hecho en HTML + JavaScript puro: no necesita instalar ni compilar nada.
 | **⇄** cambiar líder / absorber orbe | Q |
 | Botones en pantalla: Resonancia, época, poderes 1-4, menú | R · V · 1-4 · Esc |
 
-En combate, menús, tiendas y minijuegos todo se toca directamente. Opciones móviles (vibración, correr con el joystick, pantalla completa, tamaño de botones) en *Menú → Opciones*.
+En combate, menús, tiendas y minijuegos todo se toca directamente. Opciones móviles (mando en pantalla clásico con cruceta + A/B o táctil con joystick, vibración, correr con el joystick, pantalla completa, tamaño de botones) en *Menú → Opciones*.
 
 ## Archivos
 - `index.html` el juego completo en un solo archivo
