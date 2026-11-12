@@ -521,6 +521,8 @@ em.up{color:#8ee68a}em.down{color:#ff8a7a}
   };
 
   const I = (TH.input = {
+    KEYMAP,
+    DEFAULT: Object.assign({}, KEYMAP),
     held: new Set(),
     edge: new Set(),
     joy: { x: 0, y: 0 },
@@ -3452,6 +3454,8 @@ void main(){
   };
   TH.heroHD = {
     has: (id) => !!HEROES[id],
+    // el héroe tiene su propio dibujo de K.O. ya tumbado (no hay que girarlo)
+    lyingKO(id) { const H = HEROES[id], k = H && H.map.battle && H.map.battle.ko; return !!(k && k[0] === 'ko' && H.ART.ko); },
     slam(a) { const H = a && a.def && HEROES[a.def.id]; if (H && H.map.slam) a.slamT = performance.now() + 520; },
     register(id, H) {
       HEROES[id] = Object.assign({ base: {}, cache: new Map() }, H);
@@ -3500,7 +3504,7 @@ void main(){
   'use strict';
   window.TH.heroHD.register('firion', {
     PAL: {"a": "#070a2a", "b": "#131a3d", "c": "#182951", "d": "#352a34", "e": "#303955", "f": "#184473", "g": "#694323", "h": "#4a4349", "i": "#464f68", "j": "#815a2b", "k": "#6b594e", "l": "#1c6797", "m": "#5b647a", "n": "#956d3a", "o": "#6e7a8f", "p": "#8d7d6e", "q": "#ad834a", "r": "#c39859", "s": "#838fa2", "t": "#b39c88", "u": "#d7ad66", "v": "#98a5b6", "w": "#e9c26b", "x": "#c0baae", "y": "#adb9c7", "z": "#edb890", "A": "#f3d079", "B": "#bdc9d7", "C": "#fbdf86", "D": "#dfd4c6", "E": "#d0deea", "F": "#e5eef6"},
-    ART: {"front": {"rows": ["......a.aaaa", ".....apanqqxa..a", "....aDnxxwCnxaata", "....anCCjnwAAnnAna", "...aaDrwCwwwwwCuna", "..atqAAwwwwwwwwna", ".ajwAwAuwjCwACwAna", "..annqAqqnAnqwAqAna", "..annAnnnjuqnnAnrna", ".anunnnddnzndtjrnna", ".annqqzzzzzzzzjqna", "..anurjzzzzzzzjnna", "..annjjzzzqzzjqna", "...aBobdzzzzkbdkaa", "..aeeobivdddobseeBa", ".aEEEicioyysobvsEea", ".acvoieoessseeioveia", ".asoomovyyevyoieomEa", "aybsebovyyoyvombsvia", ".abcccoosEeBecicccya", "aEcffbooeccecvbcfcba", "aFsbbbccmvvvcbbccsvoa", "ayEbhccfcffmccbbcvyya", "ayEbdcfflllllchbbcyya", "acsedbffllllffcsbeoya", "ammtkbvffccccvobptma", ".azzzsEFocccoebkdzha", ".attpdFFcffcyFvhkzpa", "..aphBFFcccccFFhkda", "...acFFFccbccFFdkmBa", "...acFFycciccEFskeEa", "..aisFFvfciccEFEhpia", "..aFvvBsfcicfmyyvkia", "...aBbbcfcbcfccbBkpya", "...abbffbbybcfcbydkoa", "...abiiphbyhpppmbbpoa", "...abivihdydkmybBEhoa", "...ayvEodbabhoEoaayba", "...aBceidbabhoccyaaa", "..aycevedbabdsyccya", "..abEomebbabecmBsea", "..abbbbbbyaFbbibbca", ".aaEyyyFaa.aayvyaa", "avadiaaa...aaaha"], "fx": 9}, "side": {"rows": ["......aaaa.a", "..a..aDtnnata", ".axaannCwxxnxa", "anwnnwCwqnnAna", "anwAwAwwwCArxDa", ".anwwwwwwwwrCnDaa", "aDuuCuCAAAAwAAwnxa", "anAAnnAuCrAwwnnna", "annqnnquAAquwAxa", "annjnddnnwjnruwxa", ".aDjzxzznwnjrrnna", ".ahzzzzznqqjquna", "..apzzzzzjnrrnnxa", "..agzzzzqjrrrnxxa", "...apzggdEvsepaa", "...aycdeyiieca", "...aEccemsFviya", "...aivseissomca", "..aFEysibeeecia", "..aFBsoibbccba", "..asemiibcffca", "..aosbbiebffcca", "..aybkhebbsscya", "..accbkbcsEBea", "..aFffcscEEsba", "..acccceeevmBa", "..acbcedttddEa", "..ayecvhtzzdba", "..acicFgzzzkdya", "..acicFFggdkphEa", "..ayicBFFyvhkpya", "..aeicBFFFFykkpva", "..aiicsFFFFvokkpma", "..aFiboyyyyvchkkmaa", "...ayccbcccbByhkkyBa", "....abcfffbbaaahkEBa", "....aipppkkea.aiosca", "....avmmikkea..aFcEa", ".....aovmkhba...aaa", "....aacomkhba", "...accviikhba", "..ayvyiohhhba", "..abbiiedddba", "..aBybbEbbyEa"], "fx": 7}, "back": {"rows": ["..........aaaa", ".....aaaaakjjgaaaa", "....ajggFFCCAgFjCja", "....ajCCCCCwqjCCCja", "....aFnACCwwCwwrjxaa", "...aCCCwwwwwwwCCCCjxa", "..aCCwCCwCwCwCwCCwCja", ".ajCjnCwCwCCwwCjCnnnxa", "apjjjCunCwjCwnCjCqbbba", ".aaxjAnnCjjCwuCwjasvba", "..ajwjnwnnjAnunwjdbbaa", "..aFjuunnujnnunnjahba", "..aFjnCuAnnnuaunkkana", "..ajjjCjwnunEEbaphjjFa", "...axjnjAnuaaEoahaxta", "...aaFeygmuudassaasba", "..aaFFiyabckcmsoosFba", "..abyosayFyobFmmavsba", ".aBaobaayFFeFsoaaobbba", ".aaBysaayyyFBmacaaayaa", ".aFaafasssbFiossacfaaa", "..abcfaibbFisaaiacccea", ".abvaaaimyhooooaaaavaa", ".aaFvdafbshhboclacvvaa", ".aaBbdacEioalllladbvaa", ".aassmaasmolllcbahhsaa", "..aaaaaEioabbyyyaaaaa", "..aggpFiiaFFFFFBsagza", "..ajzoFoaFFFFFFFsaqDa", "...aaFmpsFFFFFFFBagka", "..abFosaFFFFFFFFyaya", ".ayEmsbvFFFFFFFFyyaa", ".abFosvvBFFFFFFyysaa", ".abvsaaaaaaaabaabaaa", ".abbaaaecccyacccaaa", ".abBaaaaaaaFaaaaaa", "..aaaFkppkkFakppkaa", "....aaakkkayakkkkaa", ".....aakkkdyakkkaa", "....aaakkkayakkkhaa", "...aaadkkdaFadkkdaaa", "...aasdhhdaaaddhhhaa", "...aaaaaaaaaBaaaaaaa"], "fx": 11}, "combat": {"rows": ["............a.aaaa", "...........asaxggpaa", "...........agFagCCggaaaa..................a", "..........akCCggjwCCaggga..............aaaia", ".........aaFgCCCuwCCggCga.............aiiiFea", "........aggggnwwwwwwwCuga............aiiFFmea", ".......aguAAwwwCAwCuwAga............aEFFsvba", ".......agAjACCCCAgwCAnCga..........aiFFsyba", "........aguCCCwCggwgnACCxa........aiFFvvba", "........agAgjCgjggungwgCja.......aiFFvvba", ".......ajjjgjggddgzggCggga.....aaiFFsvba", ".......aFgwgjguFmzzzgggxa..a..aeoFvvvaa", ".......agwwugguzzzzzzwga..abaaeyFssvbya", ".......aggjuaarzzzzzggga.abEbeFFooyBaa", "........agaamoaaanzzdggaaaambBoioaaa", ".......ayaBaaobFBaaaaaaaaaBaviissEa", ".......aaiaosayFysaffaFaaazadpbsBa", "......aaaaaoybmvsyafcFEoazzzaasaa", ".....aafffaovaavvacfaooiazzrkaaoaa", ".....aacfcaovsaaaaccaaaahaaaaaaaaa", ".....aadcaabssiiioaaaFapayyaa..aa", ".....aaddhammbiaaomaaasaaaa", "......aahdallccoooaaabaya", ".......aaaafflllfffaaaaa", ".......aBacllfffllcaa", ".....aayccysscccccEaa", "...aaaabbByyFFFaaxFFaaa", "..aFasaayBFFFFvaBivFFaya", ".aaysaBBBFFFFFaBBooBxxaa", "aavmaasxFFFFFFammooobaaba", "aaaayaamaxxFFaaaaooooBBba", ".aaayamBBaaaaaFaaamooBBba", "...aabmBBBoaaya..abboobBa", "..aadsboooaaaa...aapmbaa", ".aaddesbaba......aahciaa", "aadhbEmyaa.......aadyFaa", "aahhevaa........aBahsBaa", "aasecaa.........aaddsvaaa", "aaohhhaa........aadbhhppya", "aadhhhaa........aadahddaaa", "aaaaaaa.........aaaaaaaaya"], "fx": 13}, "attack": {"rows": ["..........................aaa", "......................aaaajjjaaaa", ".....................ajjgggqCCFjxa", "..................aaaajjCCAwuCCqCga", ".aaaa............ajjjCCCCuCwwwwnCja", "aeiFEa...........ajjCCwwwCwwwwwACja", "aeFFiFa.........aaaxjjwCCuCCCgCCrja", "aByBFFiaaa.....akjjguCCwwwCuugwjACga", ".aeByFFFBEa....axjCCCwwjjggjugugjCga", "..aeyvFFEFBa....aFjjjjrugjadgrudjAga", "...aeyvFEiEa.....agjwjrggjzzzzDgujga", "....aevvFFia....axujjwqggrzzzzzzgaa", "...aaaevvFEea....ajaaaasagzzzzzgga", "..aFBaaevvFBia.aaaacyvsovdgzzzaaa", "...aa..aeBsFEeaaafcssbvaoaaggava", "......aBBBvooyesbicbaaavcvEaaeBaa", ".......aaBesoeyaabbaaisEEeaaevBaa", ".........aaBaoatkkaaaioaaclcFevaa", ".........ayamabdgkaaaaavFaffceeaa", ".........aamayazzazzzdFFvaccaaaa", "..........aayayaazzzzkmmmbaaaaa", ".........acclllbbbzqaaaaafiaya", "........aFllllllcbaambbflflaa", "........acllcEFBbssvabcccccyaa", "........accFBvvvFFFFFFsaoavyFaaa", ".........aaaaaEFFyFFFFyyyoaaFFaya", ".............aayFFFFFamoomyyosaaa", "..............aaaFFFomaaammyysBoba", ".............ayooaaamaaaaammoBBBaa", "............aBaoBBsmaa...ayaiovoya", "............aakiovvma.....aaaaaaa", "...........aadvvbaaBa....aaddhaaa", "...........ahevmaaaa.....aaddyaa", "..........aayycaaa......aahkbaa", ".........aaeppaa........aadhihaa", ".........aadpdaa........aaddhpdaa", ".........aaaaaaa........aaaaaaaaa"], "fx": 21}, "hurt": {"rows": [".................a", "................akaaa..aa", "................aggggaagFa", "...............aagCgggFjCgaaaa", "..............ajggrAjCggCgaggxa", "..............aggwwwwwAAwujCga", ".............aFgACgCCwAAwwCga", ".............aaggjCggCgAwCCgpa", "............akgwAjggCgggjwuCCxa", ".......aaa...aggggdgggrgCqCjgga", "......aaaaaa.aggwgaqgqtgCgCgFa", ".....agzzzaaaigwggzzzazrggnja", ".....adggdvvaaaaazzzzzzrggwgga", ".....aaaaadeaabyaaqFFzqgggggpa", "......aaaaahfbymaaqgtaaanugFa", ".......axxabffaascaaEovvajgga", ".......aagaaaaasBcsmmamEFaxa", "......aDaa.axgasyFEcsacoyaa", "......agDa.axDdccyEEsaacoaaa", ".......aa..aFahgbmaaoacaafaya", "........aaaabcgglcaaedaffafaa", ".......aaaaaFBcfffakaaaaevaaa", "......ayFEFFFayoclahaEaaeFaa", "......aaaaxaaiBsaaayaayFaeaaa", ".....aBBBoooooisxFaaaaydtzaya", ".....abBBBooooiaFFyahaddzzaa", "....aadoommcecmxFFBakpadzzda", "....aavpbbcccmaxFFByhpaaaaya", "..aaaFvhkaabcovFFFFBahaaaaa", ".aaaayhdaa.acBobFBFBakpa", "aahhkmhda.abmBBsaavayahaa", "aadddddaa.aamoooaaayaahaa", ".aaaaaaa...abbbbBa.aaahFa", "...aaaa...aaoeehBa...aaaa", "..........aaevdaa.....aa", "..........aasmdaa", ".........aaphdbaa", ".........aaphdFa", ".........aaaaaa"], "fx": 12}, "ko": {"rows": ["...................................aa", "...............a..............aa.aaFkaa", "..............ata............akxakgxjjxaaa", ".............axxpa..........aanjjjAjACjjkFa", "..............axa......aaaaakjnuCCqCuCjCjFa", "..............aaaaaaaaaFaaaaDquArguuCwwCjaa", ".............aaaFaaabbbavvviadnjjzjCCwwCwjFa", "............abyFBFFcflfovEFEbynjjjCnwwCwwjga", ".........aaabvFFFFFlllosvssvavbgjjjuCwwwwCga", "...aaaaaaaabbyFFFFBllcommmmbaobqunjjuuwwCCja", "..aFaabaabmobFFFFFylfcbiiaassaazzzkrjuwwujxa", ".aaahhpppoBvaFFFyyyffcbffabvFFazzzdgAuuuunxa", "aybhmipepoBBaBBBddbbbEBflaavyFazzzqjrrwAwjkaa", "aybkoaBseboooosdzdzaEFBccabooobkzzdrjCjqjDDDxa", "aybpaaaabbaaaaobzzzavvoccabooaBkgFhgjjjjFpDpDa", ".aaaaaaaaaFBBybFaaaaaabaaayaaaaaaaaaakDaaaaaa"], "fx": 25}, "run1": {"rows": ["................aa", ".............aaakgaa", "............aptxjCjja.aaa", "...........apCnjnnCCCaFkxa", "..........aaDnAACjwCCjjCka", ".........aFnjjrwwwwwAuwuxa", "........akAAAwwwwwwCwwuna", "........akjjwCwCAAuwCAwAFa", ".........aDjAjCwAqjwjAACCka", ".........ajAjjCjggjrunCnuxa", "........akjnjujgddgzggqnjka", "........axjwgjjjztzzzkgnxa", "........akdddjjuzzzzzjnxa", "......aabdFFbdkdzzzzzjnFa", "....aaBbbsEEsbbdkzzzzgxa", "...aybcebevsobmBbhnnkaaaaa", "...abbciicoscbiivabebydbdFa", "...aeBycibbbbsyeieaebatgzdBa", "...avFebbabmsyyFmyocbbdgzaya", "..aybseBBeebosvEoBbfbkdkkaa", "..ahzzdBBcfiibbbobffbkdbyya", "..adzzzdcffflfcmmbbfcbbFaa", "..ahzzdFecflflllcaaayBaa", "...addFbvvyclfcffa.aaa", "..aBbmvvyFFFycccbba", "...abvyFFFFFbsBBBBba", "...aFeyFFFFFiooBBBbca", "..aaaFbbFFBbbmoooBBba", ".aBbaiesbbbbBbbbooBba", ".adhkhesyvaFaaFammbBa", ".ahhihveviya.abhmmeBa", ".ahhvebbbBa..abhmBba", "aBbobEBaaa..aBhhebba", "aBiiaEa.....aeaieomFa", ".abbBa......aebbhhhbba", "..aaa.......aBBybbyaa"], "fx": 13}, "run2": {"rows": ["................aa", ".............aaapDaa", "............akkFkCCxaaaa", "............auCjjjCCnxDka", "..........aaxjCACwwwCCnCja", ".........aFFjnruwwwwwCuAja", "........akjAAwCwwCwwCwwwja", "........axjjjwCwAAArCuqAja", ".........aDjwAjCAwjjCjAnCja", ".........apCAjjAgjrjurjnCja", ".........anngujjgddjzgjnjka", "........aFjCAuujzFpzzDjnjta", "........aakddjujzzzzzzjxaa", ".......aBbbFFbbgzzzzzzja", "......aycceEEvbbkzzzzgxa", ".....abcfcsissbmbhkkkFa", "....aBbscfeoobeesBbbeya.aa", "....abvEceebbosBemibsbaaEaa", "....abvEmbbbmovFBosbcbEdttda", "....abvoiFcbbcvyByvbfbbagjaBa", "....abdzpbffmbcccsbffchhkkha", "....adzzzbfllfcoocbffchbbdFa", "....adhzhcffflllfcEbbbyyyaa", "....aFFdbvvvvffffbaaFaaaa", "...abvbvyyFFFybbbsaaa", "..aBevyFFFFFFbmmvvbya", ".aBabbbvFFFybiosyyyba", "aFbhhibbmBBybbmossyBBa", "aabhhoisybsbFFbmooobba", "aahveviovsoFaaybedsmaa", "abhvFebbbbFa..aBbmiBbaa", "aaiaaaayyaa....aBdhecbya", "aFBa...aa......aFbieoomaa", ".aa.............aFbhimmaa", "................aFbhbbbaa", ".................aBBBaaa"], "fx": 20}, "run3": {"rows": ["................aa", "............aaaatFaa..a", "...........axxxxjjjDaaFa", "...........axCjjnnCAjFjFa", "........aaaFjjCCCjuCCnuCxa", ".......axxxjCCuuwwwwwwuCja", ".......akjAAAwwwAwwAwwuApa", "........axjrrCCAAAjwCwrnxa", ".......axxjACqqAujjjjjACCFa", "......akjwCAjjjqgjujjjwnja", ".......akjjnjjjggddjzdgjja", ".......aEFjujrrjzFzzzDrjxa", "........akAjrggnzzzzzzgxa", "........akgrdkdnzzzzzzga", ".......aBBbbmEEdkzzDzka", "......aFbfbomEEvcdnnga", "......abffbomvvscvbsBaa", ".....asbbcbbiiisbcvsFdda", ".....aBbhbbobbbfibbbtzzka", "......abhhbcbbffbFFspzzda", "......aFhhbfmcfcoooobzzda", ".......aibffffcbibbbbdaa", "......aabbffflllbbyaaa", "....aaFibyyyfffcfcya", "...aabbvyyFFFFccocma", "..aasvyFFFFFFbbovvaFa", ".aFeBbyFFFFFvbmosvBaBa", ".aahhbebbyFBbbmoooBvya", "abhhhiivsbbcBaBbobbba", "abieesissseya.abimvaa", "abhvbbbsosya..abhhyeFaa", "abimaaaaaaa...aFdhosbbFa", "abba...........aahhhmmaBa", ".aa............abhhhheya", "...............aEbbFyya"], "fx": 18}},
+    ART: {"front": {"rows": ["......a.aaaa", ".....apanqqxa..a", "....aDnxxwCnxaata", "....anCCjnwAAnnAna", "...aaDrwCwwwwwCuna", "..atqAAwwwwwwwwna", ".ajwAwAuwjCwACwAna", "..annqAqqnAnqwAqAna", "..annAnnnjuqnnAnrna", ".anunnnddnzndtjrnna", ".annqqzzzzzzzzjqna", "..anurjzzzzzzzjnna", "..annjjzzzqzzjqna", "...aBobdzzzzkbdkaa", "..aeeobivdddobseeBa", ".aEEEicioyysobvsEea", ".acvoieoessseeioveia", ".asoomovyyevyoieomEa", "aybsebovyyoyvombsvia", ".abcccoosEeBecicccya", "aEcffbooeccecvbcfcba", "aFsbbbccmvvvcbbccsvoa", "ayEbhccfcffmccbbcvyya", "ayEbdcfflllllchbbcyya", "acsedbffllllffcsbeoya", "ammtkbvffccccvobptma", ".azzzsEFocccoebkdzha", ".attpdFFcffcyFvhkzpa", "..aphBFFcccccFFhkda", "...acFFFccbccFFdkmBa", "...acFFycciccEFskeEa", "..aisFFvfciccEFEhpia", "..aFvvBsfcicfmyyvkia", "...aBbbcfcbcfccbBkpya", "...abbffbbybcfcbydkoa", "...abiiphbyhpppmbbpoa", "...abivihdydkmybBEhoa", "...ayvEodbabhoEoaayba", "...aBceidbabhoccyaaa", "..aycevedbabdsyccya", "..abEomebbabecmBsea", "..abbbbbbyaFbbibbca", ".aaEyyyFaa.aayvyaa", "avadiaaa...aaaha"], "fx": 9}, "side": {"rows": ["......aaaa.a", "..a..aDtnnata", ".axaannCwxxnxa", "anwnnwCwqnnAna", "anwAwAwwwCArxDa", ".anwwwwwwwwrCnDaa", "aDuuCuCAAAAwAAwnxa", "anAAnnAuCrAwwnnna", "annqnnquAAquwAxa", "annjnddnnwjnruwxa", ".aDjzxzznwnjrrnna", ".ahzzzzznqqjquna", "..apzzzzzjnrrnnxa", "..agzzzzqjrrrnxxa", "...apzggdEvsepaa", "...aycdeyiieca", "...aEccemsFviya", "...aivseissomca", "..aFEysibeeecia", "..aFBsoibbccba", "..asemiibcffca", "..aosbbiebffcca", "..aybkhebbsscya", "..accbkbcsEBea", "..aFffcscEEsba", "..acccceeevmBa", "..acbcedttddEa", "..ayecvhtzzdba", "..acicFgzzzkdya", "..acicFFggdkphEa", "..ayicBFFyvhkpya", "..aeicBFFFFykkpva", "..aiicsFFFFvokkpma", "..aFiboyyyyvchkkmaa", "...ayccbcccbByhkkyBa", "....abcfffbbaaahkEBa", "....aipppkkea.aiosca", "....avmmikkea..aFcEa", ".....aovmkhba...aaa", "....aacomkhba", "...accviikhba", "..ayvyiohhhba", "..abbiiedddba", "..aBybbEbbyEa"], "fx": 7}, "back": {"rows": ["..........aaaa", ".....aaaaakjjgaaaa", "....ajggFFCCAgFjCja", "....ajCCCCCwqjCCCja", "....aFnACCwwCwwrjxaa", "...aCCCwwwwwwwCCCCjxa", "..aCCwCCwCwCwCwCCwCja", ".ajCjnCwCwCCwwCjCnnnxa", "apjjjCunCwjCwnCjCqbbba", ".aaxjAnnCjjCwuCwjasvba", "..ajwjnwnnjAnunwjdbbaa", "..aFjuunnujnnunnjahba", "..aFjnCuAnnnuaunkkana", "..ajjjCjwnunEEbaphjjFa", "...axjnjAnuaaEoahaxta", "...aaFeygmuudassaasba", "..aaFFiyabckcmsoosFba", "..abyosayFyobFmmavsba", ".aBaobaayFFeFsoaaobbba", ".aaBysaayyyFBmacaaayaa", ".aFaafasssbFiossacfaaa", "..abcfaibbFisaaiacccea", ".abvaaaimyhooooaaaavaa", ".aaFvdafbshhboclacvvaa", ".aaBbdacEioalllladbvaa", ".aassmaasmolllcbahhsaa", "..aaaaaEioabbyyyaaaaa", "..aggpFiiaFFFFFBsagza", "..ajzoFoaFFFFFFFsaqDa", "...aaFmpsFFFFFFFBagka", "..abFosaFFFFFFFFyaya", ".ayEmsbvFFFFFFFFyyaa", ".abFosvvBFFFFFFyysaa", ".abvsaaaaaaaabaabaaa", ".abbaaaecccyacccaaa", ".abBaaaaaaaFaaaaaa", "..aaaFkppkkFakppkaa", "....aaakkkayakkkkaa", ".....aakkkdyakkkaa", "....aaakkkayakkkhaa", "...aaadkkdaFadkkdaaa", "...aasdhhdaaaddhhhaa", "...aaaaaaaaaBaaaaaaa"], "fx": 11}, "combat": {"rows": [".............................aaa", ".........................aa.ajjka.a", "........................ajCggjqCCajg", "......................aakjCCAunACgjCg", ".....................ajgwCCuuCwwwCCwCa", ".aaaa...............ajrCCCCCCAwwwwCCCa", "aiFiia..............ajqjjuCCuCAArCwrja", "aiBFFia...........aaagjqwCCrnwCggCjCug", "aBBBFFiaaa.......ajjjwCCwwwAwguugguCrg", ".aEBsFFiBEa......akCCCCwwjjCgdgugugrjg", "..aiyvFFiEa.......akjjjurugjnFogtgbujja", "...aeysFFia........aguwjrggjzFxzzDiujg", ".....evvFFia.......aujnuqggqzzzzzzzga", "......eyvFEia......akaaaakagzzzzzzzg", ".......evvFEea.....aayyysovdgzzFFza", "........eEvFEia..aeasesvcaoatgggga", ".......aBevsFEe.aFccavbvvaiaaaaaab", ".......aBBeEssFevaEbbcaisFEeeaaevBa", "........aa.evoeoaiabeaamvEEscaabvBa", "............aaoazkkhaaiooaacflbFeia", "...........abvadddabFamaavFaclfiBoa", "...........aoaakzzdbzzpmFFviafcaia", "............a..akzazzzzaosssacaaa", "..........a.cccbFFgzqzaaaaaaima", ".........aBfllllbbbataacffoffba", ".........alfllbcccbsomvffllllba", ".........allcaaaaassyyabcccccyoaa", "..........cc.avvvyFFyFFFoooaayFEsa", ".............avEFFyFFFFvayyooaaFFa", "..............aayFFFFFvomoomsyyoaaa", "................aaFFFaomaaammoyysByb", "................aoavvoma...aamooBBBb", "...............aoBossmma.....aaeovoa", "..............amivBEmaa......aaoimma", ".............ahhpboma........adpxoa", ".............aeyBpaa.........ddhia", "............ahevma...........ddyya", "...........acyyia...........akkba", "...........ahppa............dhyiha", "...........apppa...........admimppa", "...........aaaaa...........aaaaaaaa"], "fx": 23}, "attack": {"rows": ["..........................aaa", "......................aaaajjjaaaa", ".....................ajjgggqCCFjxa", "..................aaaajjCCAwuCCqCga", ".aaaa............ajjjCCCCuCwwwwnCja", "aeiFEa...........ajjCCwwwCwwwwwACja", "aeFFiFa.........aaaxjjwCCuCCCgCCrja", "aByBFFiaaa.....akjjguCCwwwCuugwjACga", ".aeByFFFBEa....axjCCCwwjjggjugugjCga", "..aeyvFFEFBa....aFjjjjrugjadgrudjAga", "...aeyvFEiEa.....agjwjrggjzzzzDgujga", "....aevvFFia....axujjwqggrzzzzzzgaa", "...aaaevvFEea....ajaaaasagzzzzzgga", "..aFBaaevvFBia.aaaacyvsovdgzzzaaa", "...aa..aeBsFEeaaafcssbvaoaaggava", "......aBBBvooyesbicbaaavcvEaaeBaa", ".......aaBesoeyaabbaaisEEeaaevBaa", ".........aaBaoatkkaaaioaaclcFevaa", ".........ayamabdgkaaaaavFaffceeaa", ".........aamayazzazzzdFFvaccaaaa", "..........aayayaazzzzkmmmbaaaaa", ".........acclllbbbzqaaaaafiaya", "........aFllllllcbaambbflflaa", "........acllcEFBbssvabcccccyaa", "........accFBvvvFFFFFFsaoavyFaaa", ".........aaaaaEFFyFFFFyyyoaaFFaya", ".............aayFFFFFamoomyyosaaa", "..............aaaFFFomaaammyysBoba", ".............ayooaaamaaaaammoBBBaa", "............aBaoBBsmaa...ayaiovoya", "............aakiovvma.....aaaaaaa", "...........aadvvbaaBa....aaddhaaa", "...........ahevmaaaa.....aaddyaa", "..........aayycaaa......aahkbaa", ".........aaeppaa........aadhihaa", ".........aadpdaa........aaddhpdaa", ".........aaaaaaa........aaaaaaaaa"], "fx": 21}, "hurt": {"rows": [".................a", "................akaaa..aa", "................aggggaagFa", "...............aagCgggFjCgaaaa", "..............ajggrAjCggCgaggxa", "..............aggwwwwwAAwujCga", ".............aFgACgCCwAAwwCga", ".............aaggjCggCgAwCCgpa", "............akgwAjggCgggjwuCCxa", ".......aaa...aggggdgggrgCqCjgga", "......aaaaaa.aggwgaqgqtgCgCgFa", ".....agzzzaaaigwggzzzazrggnja", ".....adggdvvaaaaazzzzzzrggwgga", ".....aaaaadeaabyaaqFFzqgggggpa", "......aaaaahfbymaaqgtaaanugFa", ".......axxabffaascaaEovvajgga", ".......aagaaaaasBcsmmamEFaxa", "......aDaa.axgasyFEcsacoyaa", "......agDa.axDdccyEEsaacoaaa", ".......aa..aFahgbmaaoacaafaya", "........aaaabcgglcaaedaffafaa", ".......aaaaaFBcfffakaaaaevaaa", "......ayFEFFFayoclahaEaaeFaa", "......aaaaxaaiBsaaayaayFaeaaa", ".....aBBBoooooisxFaaaaydtzaya", ".....abBBBooooiaFFyahaddzzaa", "....aadoommcecmxFFBakpadzzda", "....aavpbbcccmaxFFByhpaaaaya", "..aaaFvhkaabcovFFFFBahaaaaa", ".aaaayhdaa.acBobFBFBakpa", "aahhkmhda.abmBBsaavayahaa", "aadddddaa.aamoooaaayaahaa", ".aaaaaaa...abbbbBa.aaahFa", "...aaaa...aaoeehBa...aaaa", "..........aaevdaa.....aa", "..........aasmdaa", ".........aaphdbaa", ".........aaphdFa", ".........aaaaaa"], "fx": 12}, "ko": {"rows": ["...................................aa", "...............a..............aa.aaFkaa", "..............ata............akxakgxjjxaaa", ".............axxpa..........aanjjjAjACjjkFa", "..............axa......aaaaakjnuCCqCuCjCjFa", "..............aaaaaaaaaFaaaaDquArguuCwwCjaa", ".............aaaFaaabbbavvviadnjjzjCCwwCwjFa", "............abyFBFFcflfovEFEbynjjjCnwwCwwjga", ".........aaabvFFFFFlllosvssvavbgjjjuCwwwwCga", "...aaaaaaaabbyFFFFBllcommmmbaobqunjjuuwwCCja", "..aFaabaabmobFFFFFylfcbiiaassaazzzkrjuwwujxa", ".aaahhpppoBvaFFFyyyffcbffabvFFazzzdgAuuuunxa", "aybhmipepoBBaBBBddbbbEBflaavyFazzzqjrrwAwjkaa", "aybkoaBseboooosdzdzaEFBccabooobkzzdrjCjqjDDDxa", "aybpaaaabbaaaaobzzzavvoccabooaBkgFhgjjjjFpDpDa", ".aaaaaaaaaFBBybFaaaaaabaaayaaaaaaaaaakDaaaaaa"], "fx": 25}, "run1": {"rows": ["................aa", ".............aaakgaa", "............aptxjCjja.aaa", "...........apCnjnnCCCaFkxa", "..........aaDnAACjwCCjjCka", ".........aFnjjrwwwwwAuwuxa", "........akAAAwwwwwwCwwuna", "........akjjwCwCAAuwCAwAFa", ".........aDjAjCwAqjwjAACCka", ".........ajAjjCjggjrunCnuxa", "........akjnjujgddgzggqnjka", "........axjwgjjjztzzzkgnxa", "........akdddjjuzzzzzjnxa", "......aabdFFbdkdzzzzzjnFa", "....aaBbbsEEsbbdkzzzzgxa", "...aybcebevsobmBbhnnkaaaaa", "...abbciicoscbiivabebydbdFa", "...aeBycibbbbsyeieaebatgzdBa", "...avFebbabmsyyFmyocbbdgzaya", "..aybseBBeebosvEoBbfbkdkkaa", "..ahzzdBBcfiibbbobffbkdbyya", "..adzzzdcffflfcmmbbfcbbFaa", "..ahzzdFecflflllcaaayBaa", "...addFbvvyclfcffa.aaa", "..aBbmvvyFFFycccbba", "...abvyFFFFFbsBBBBba", "...aFeyFFFFFiooBBBbca", "..aaaFbbFFBbbmoooBBba", ".aBbaiesbbbbBbbbooBba", ".adhkhesyvaFaaFammbBa", ".ahhihveviya.abhmmeBa", ".ahhvebbbBa..abhmBba", "aBbobEBaaa..aBhhebba", "aBiiaEa.....aeaieomFa", ".abbBa......aebbhhhbba", "..aaa.......aBBybbyaa"], "fx": 13}, "run2": {"rows": ["................aa", ".............aaapDaa", "............akkFkCCxaaaa", "............auCjjjCCnxDka", "..........aaxjCACwwwCCnCja", ".........aFFjnruwwwwwCuAja", "........akjAAwCwwCwwCwwwja", "........axjjjwCwAAArCuqAja", ".........aDjwAjCAwjjCjAnCja", ".........apCAjjAgjrjurjnCja", ".........anngujjgddjzgjnjka", "........aFjCAuujzFpzzDjnjta", "........aakddjujzzzzzzjxaa", ".......aBbbFFbbgzzzzzzja", "......aycceEEvbbkzzzzgxa", ".....abcfcsissbmbhkkkFa", "....aBbscfeoobeesBbbeya.aa", "....abvEceebbosBemibsbaaEaa", "....abvEmbbbmovFBosbcbEdttda", "....abvoiFcbbcvyByvbfbbagjaBa", "....abdzpbffmbcccsbffchhkkha", "....adzzzbfllfcoocbffchbbdFa", "....adhzhcffflllfcEbbbyyyaa", "....aFFdbvvvvffffbaaFaaaa", "...abvbvyyFFFybbbsaaa", "..aBevyFFFFFFbmmvvbya", ".aBabbbvFFFybiosyyyba", "aFbhhibbmBBybbmossyBBa", "aabhhoisybsbFFbmooobba", "aahveviovsoFaaybedsmaa", "abhvFebbbbFa..aBbmiBbaa", "aaiaaaayyaa....aBdhecbya", "aFBa...aa......aFbieoomaa", ".aa.............aFbhimmaa", "................aFbhbbbaa", ".................aBBBaaa"], "fx": 20}, "run3": {"rows": ["................aa", "............aaaatFaa..a", "...........axxxxjjjDaaFa", "...........axCjjnnCAjFjFa", "........aaaFjjCCCjuCCnuCxa", ".......axxxjCCuuwwwwwwuCja", ".......akjAAAwwwAwwAwwuApa", "........axjrrCCAAAjwCwrnxa", ".......axxjACqqAujjjjjACCFa", "......akjwCAjjjqgjujjjwnja", ".......akjjnjjjggddjzdgjja", ".......aEFjujrrjzFzzzDrjxa", "........akAjrggnzzzzzzgxa", "........akgrdkdnzzzzzzga", ".......aBBbbmEEdkzzDzka", "......aFbfbomEEvcdnnga", "......abffbomvvscvbsBaa", ".....asbbcbbiiisbcvsFdda", ".....aBbhbbobbbfibbbtzzka", "......abhhbcbbffbFFspzzda", "......aFhhbfmcfcoooobzzda", ".......aibffffcbibbbbdaa", "......aabbffflllbbyaaa", "....aaFibyyyfffcfcya", "...aabbvyyFFFFccocma", "..aasvyFFFFFFbbovvaFa", ".aFeBbyFFFFFvbmosvBaBa", ".aahhbebbyFBbbmoooBvya", "abhhhiivsbbcBaBbobbba", "abieesissseya.abimvaa", "abhvbbbsosya..abhhyeFaa", "abimaaaaaaa...aFdhosbbFa", "abba...........aahhhmmaBa", ".aa............abhhhheya", "...............aEbbFyya"], "fx": 18}},
     legW: 8, shadow: 8,
     flip: { hurt: true },
     blink: { front: [[7, 9, 'z'], [8, 9, 'z'], [12, 9, 'z'], [13, 9, 'z'], [7, 10, 'd'], [8, 10, 'd'], [12, 10, 'd'], [13, 10, 'd']] },
@@ -5984,6 +5988,7 @@ void main(){
         { label: 'Volumen de los efectos', value: TH.music.label('sfx'), act: () => TH.music.cycle('sfx') },
         { label: 'Flecha guía', value: TH.settings.guide === false ? 'No' : 'Sí', act: () => { TH.settings.guide = TH.settings.guide === false; TH.settings.save(); } },
         { label: 'Margen del timing', value: TH.settings.lab(TH.settings.TIMINGS, TH.settings.timing), act: () => TH.settings.cyc('timing', TH.settings.TIMINGS) },
+        ...(TH.optExtra ? TH.optExtra() : []),
         { label: 'Botones táctiles', value: TH.settings.lab(TH.settings.TOUCH, TH.settings.touch), act: () => TH.settings.cyc('touch', TH.settings.TOUCH) },
         ...(document.documentElement.classList.contains('mob') ? [
           { label: 'Mando en pantalla', value: TH.settings.ctrl === 'clasico' ? 'Clásico (joystick + cruceta)' : 'Táctil (joystick)', act: () => TH.setCtrl(TH.settings.ctrl === 'clasico' ? 'tactil' : 'clasico') },
@@ -7695,6 +7700,7 @@ void main(){
       this.active = ids.slice(0, 3).map((id, i) => this.unit(id, i));
       this.reserve = ids[3] ? this.unit(ids[3], 3) : null;
       const PS = MOB ? PSLOT_M : PSLOT;
+      this.mob = MOB;
       this.active.forEach((u, i) => {
         const src = m.party[m.order.indexOf(u.id)] || leader;
         u.x = retry ? C.x + PS[i][0] : src.x; u.y = retry ? C.y + PS[i][1] : src.y;
@@ -8911,8 +8917,8 @@ void main(){
       const tgt = this.state === 'target' ? this.targets()[this.target] : null;
       const tgtOne = !!(tgt && tgt.side === 'enemy' && (!this.pending || !this.pending.area || this.pending.area === 'one'));
       if (this.state === 'target' && tgt && tgt.side === 'enemy') {
-        const ar = this.pending && this.pending.area, key = tgt.idx + ':' + tgt.hp + ':' + ar;
-        if (this._tgtKey !== key) { this._tgtKey = key; this.help((ar && ar !== 'one' ? (TH.data.AREA_ES[ar] || ar) + ' · centro: ' : '') + tgt.name + ' · ' + tgt.hp + '/' + tgt.maxhp + ' PV · A confirmar · B volver'); }
+        const ar = this.pending && this.pending.area, ch = tgt.charging, key = tgt.idx + ':' + tgt.hp + ':' + ar + ':' + (ch ? ch.left : '');
+        if (this._tgtKey !== key) { this._tgtKey = key; this.help((ar && ar !== 'one' ? (TH.data.AREA_ES[ar] || ar) + ' · centro: ' : '') + tgt.name + ' · ' + tgt.hp + '/' + tgt.maxhp + ' PV' + (ch ? ' · ¡ataque cargado en ' + ch.left + (ch.left === 1 ? ' turno' : ' turnos') + '!' : '') + ' · A confirmar · B volver'); }
       } else this._tgtKey = null;
       for (const u of L) {
         if (u.side === 'enemy') {
@@ -8926,6 +8932,8 @@ void main(){
           u.sy = sy0;
           if (u.guarding && !u.dead) { ctx.fillStyle = '#ffb0a0'; ctx.fillRect(Math.round(u.x - 10), Math.round(u.sy - 30), 3, 4); ctx.fillStyle = '#7a2418'; ctx.fillRect(Math.round(u.x - 9), Math.round(u.sy - 29), 1, 2); }
           if (u.stunned && !u.dead) for (let i = 0; i < 3; i++) { const a = t * 4 + i * 2.1; ctx.fillStyle = '#ffe070'; ctx.fillRect(Math.round(u.x + Math.cos(a) * 8), Math.round(u.sy - fly - (MARK_H[u.sprite] || u.D.markH || 28) - 4 + Math.sin(a) * 2), 2, 2); }
+        } else if (u.ko && u.mode === 'auto' && TH.heroHD && TH.heroHD.lyingKO(u.id)) {
+          TH.chars.draw(ctx, u, 0.85);
         } else if (u.ko && u.mode === 'auto') {
           ctx.save(); ctx.translate(Math.round(u.x), Math.round(u.shadowY)); ctx.rotate(-Math.PI / 2); ctx.translate(-Math.round(u.x), -Math.round(u.shadowY) - 2);
           TH.chars.draw(ctx, u, 0.85); ctx.restore();
@@ -8975,7 +8983,13 @@ void main(){
           }
           ctx.globalAlpha = 1;
           // rondas que le quedan para soltarlo
-          for (let k = 0; k < e.charging.left; k++) { ctx.fillStyle = '#1a1028'; ctx.fillRect(sx0 - 7, sy0 + k * 4, 4, 3); ctx.fillStyle = '#ff9a5a'; ctx.fillRect(sx0 - 6, sy0 + k * 4 + 1, 2, 1); }
+          {
+            const left = e.charging.left, last = left <= 1, bx = sx0 - 14, by = sy0 - 1, pulse = last ? 0.55 + 0.45 * Math.sin(t * 10) : 1;
+            ctx.fillStyle = '#1a1028'; ctx.fillRect(bx - 1, by - 1, 12, 13);
+            ctx.globalAlpha = pulse; ctx.fillStyle = last ? '#ff4a3a' : '#ff9a5a'; ctx.fillRect(bx, by, 10, 11); ctx.globalAlpha = 1;
+            ctx.fillStyle = '#2a1020'; ctx.fillRect(bx + 1, by + 1, 8, 9);
+            TH.pixfont.draw(ctx, String(left), bx + 5, by + 6, last ? '#ffd0c0' : '#ffe0b0', 1);
+          }
         }
       }
 
@@ -9009,7 +9023,7 @@ void main(){
         const k = n.t / n.dur, b = n.label ? -k * 14 : -Math.sin(Math.min(1, k * 3) * Math.PI) * 12 - k * 8;
         const p = m.toScreen(n.x, n.y);
         ctx.globalAlpha = k > 0.75 ? (1 - k) / 0.25 : 1;
-        TH.pixfont.draw(ctx, n.v, p.x + sx, p.y + b + sy, n.color, n.scale);
+        TH.pixfont.draw(ctx, n.v, p.x + sx, p.y + b + sy, n.color, n.scale + (this.mob ? 1 : 0));
       }
       ctx.globalAlpha = 1;
       if (this.banner) {
@@ -21717,6 +21731,239 @@ void main(){
     const t = (C.triggers || []).find((x) => x.script === 'cap8.puerta');
     if (t) C.triggers.unshift({ rect: [t.rect[0], t.rect[1] + t.rect[3], t.rect[2], 1], once: 'aviso.final', if: [].concat(t.if || [], '!cap8.puerta'), script: 'aviso.final' });
   }
+})();
+
+</script>
+  <script>/* engine/fase7.js */
+// Jugabilidad:
+// · Enemigos débiles: si el grupo ya los supera de sobra, no te persiguen y un golpe con la lanza los vence al instante.
+// · Velocidad de combate (Normal / Rápida / Muy rápida): acelera las animaciones, nunca las ventanas de timing.
+// · Teclas configurables (teclado).
+// · Logros, que se guardan aparte de las partidas.
+(function () {
+  'use strict';
+  const TH = window.TH;
+  const EXTRA = 'thalyria.extra.v1', LOGROS = 'thalyria.logros.v1';
+  const load = (k, d) => { try { return Object.assign(d, JSON.parse(localStorage.getItem(k) || '{}')); } catch (e) { return d; } };
+  const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } };
+  const X = (TH.extra = load(EXTRA, { bspeed: 1, quick: true, keys: {}, kills: 0 }));
+  const saveX = () => store(EXTRA, X);
+  const isMob = () => document.documentElement.classList.contains('mob');
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // ================= panel flotante común (teclas y logros) =================
+  const css = document.createElement('style');
+  css.textContent = '#xPanel{position:fixed;inset:0;z-index:70;display:grid;place-items:center;background:rgba(6,4,16,.6)}#xPanel[hidden]{display:none}' +
+    '#xPanel .xp{width:min(460px,92vw);max-height:86vh;display:flex;flex-direction:column;padding:12px 14px;gap:8px;color:var(--fg);font:14px var(--ui)}' +
+    '#xPanel h2{margin:0;font-family:var(--title);font-size:15px;letter-spacing:.14em;color:var(--gold);text-align:center}' +
+    '#xPanel .xl{overflow:auto;display:grid;gap:3px;overscroll-behavior:contain}#xPanel .xr{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 9px;border:1px solid transparent;border-radius:6px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;min-height:34px}' +
+    '#xPanel .xr.sel{background:rgba(232,184,74,.15);border-color:var(--gold-soft)}#xPanel .xr kbd{font:600 12px ui-monospace,monospace;padding:2px 7px;border-radius:4px;background:#241d3c;border:1px solid #4a3f78;color:#ffe8a0;white-space:nowrap}' +
+    '#xPanel .xr.wait kbd{background:#e8b84a;color:#2a1d10;animation:xpw .6s ease-in-out infinite alternate}@keyframes xpw{to{opacity:.55}}' +
+    '#xPanel .xf{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}#xPanel .dim{color:var(--muted);font-size:12px;text-align:center}' +
+    '#xPanel .lg{display:grid;grid-template-columns:28px 1fr;gap:2px 10px;padding:6px 8px;border-radius:6px;align-items:center}#xPanel .lg i{grid-row:span 2;font-style:normal;font-size:20px;text-align:center;filter:grayscale(1);opacity:.35}' +
+    '#xPanel .lg.on i{filter:none;opacity:1}#xPanel .lg b{font-weight:600}#xPanel .lg.on b{color:#f2d48a}#xPanel .lg small{color:var(--muted);font-size:12px}#xPanel .lg:not(.on){opacity:.7}';
+  document.head.appendChild(css);
+  const panel = document.createElement('div');
+  panel.id = 'xPanel'; panel.hidden = true;
+  panel.innerHTML = '<div class="xp panel"></div>';
+  document.body.appendChild(panel);
+  const box = panel.firstChild;
+  let pnl = null; // { draw(), key(e) }
+  const closePanel = () => { panel.hidden = true; pnl = null; TH.input.held.clear(); TH.input.edge.clear(); };
+  const openPanel = (p) => { pnl = p; panel.hidden = false; p.draw(); };
+  panel.addEventListener('pointerdown', (e) => { if (e.target === panel) closePanel(); });
+  // mientras el panel está abierto, el teclado es suyo y no llega al juego
+  addEventListener('keydown', (e) => { if (!pnl) return; e.preventDefault(); e.stopImmediatePropagation(); pnl.key(e); }, true);
+  addEventListener('keyup', (e) => { if (pnl) e.stopImmediatePropagation(); }, true);
+
+  // ================= 1 · teclas configurables =================
+  const I = TH.input, KM = I.KEYMAP, DEF = I.DEFAULT;
+  const ACTIONS = [
+    ['up', 'Arriba', 'KeyW'], ['down', 'Abajo', 'KeyS'], ['left', 'Izquierda', 'KeyA'], ['right', 'Derecha', 'KeyD'],
+    ['a', 'Aceptar · atacar · timing', 'Space'], ['b', 'Volver · correr', 'ShiftLeft'], ['menu', 'Menú del grupo', 'Escape'],
+    ['swap', 'Cambiar de líder', 'KeyQ'], ['res', 'Resonancia', 'KeyR'], ['epoch', 'Cambiar de época', 'KeyV'],
+  ];
+  const keyName = (c) => !c ? '—' : c.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, 'Num ').replace('ShiftLeft', 'Mayús izq.').replace('ShiftRight', 'Mayús der.')
+    .replace('Space', 'Espacio').replace('Escape', 'Esc').replace('Enter', 'Intro').replace('Backspace', 'Retroceso').replace('ArrowUp', '↑').replace('ArrowDown', '↓').replace('ArrowLeft', '←').replace('ArrowRight', '→')
+    .replace('ControlLeft', 'Ctrl izq.').replace('ControlRight', 'Ctrl der.').replace('AltLeft', 'Alt').replace('Comma', ',').replace('Period', '.').replace('Semicolon', 'Ñ').replace('Slash', '-');
+  const applyKeys = () => {
+    for (const k in KM) delete KM[k];
+    Object.assign(KM, DEF);
+    for (const [act, , main] of ACTIONS) {
+      const c = X.keys[act];
+      if (!c) continue;
+      if (KM[main] === act) delete KM[main];
+      KM[c] = act; // si la tecla era de otra acción, ahora es de esta
+    }
+  };
+  applyKeys();
+  const mainKey = (act, main) => X.keys[act] || main;
+  const others = (act) => Object.keys(KM).filter((c) => KM[c] === act && c !== mainKey(act, (ACTIONS.find((a) => a[0] === act) || [])[2])).slice(0, 3);
+  const keysPanel = {
+    i: 0, wait: false,
+    draw() {
+      const rows = ACTIONS.map(([act, lab, main], i) => '<button type="button" class="xr' + (i === this.i ? ' sel' : '') + (this.wait && i === this.i ? ' wait' : '') + '" data-i="' + i + '"><span>' + lab +
+        (others(act).length ? ' <small class="dim">también ' + others(act).map(keyName).join(', ') + '</small>' : '') + '</span><kbd>' + (this.wait && i === this.i ? 'Pulsa una tecla…' : keyName(mainKey(act, main))) + '</kbd></button>').join('');
+      box.innerHTML = '<h2>Teclas</h2><div class="xl">' + rows + '</div><p class="dim">Elige una acción y pulsa la tecla nueva. Esc cancela.</p>' +
+        '<div class="xf"><button type="button" class="pm-btn ghost" data-k="reset">Restablecer</button><button type="button" class="pm-btn" data-k="close">Cerrar</button></div>';
+      box.querySelectorAll('.xr').forEach((b) => b.onclick = () => { this.i = +b.dataset.i; this.wait = true; this.draw(); });
+      box.querySelector('[data-k=reset]').onclick = () => { X.keys = {}; saveX(); applyKeys(); this.wait = false; this.draw(); TH.ui.toast('Teclas restablecidas'); };
+      box.querySelector('[data-k=close]').onclick = closePanel;
+      const s = box.querySelector('.xr.sel'); if (s) s.scrollIntoView({ block: 'nearest' });
+    },
+    key(e) {
+      if (this.wait) {
+        if (e.code === 'Escape') { this.wait = false; this.draw(); return; }
+        const act = ACTIONS[this.i][0];
+        // la tecla deja de ser la principal de otra acción
+        for (const k in X.keys) if (X.keys[k] === e.code) delete X.keys[k];
+        X.keys[act] = e.code; saveX(); applyKeys();
+        this.wait = false; this.draw(); TH.ui.toast(ACTIONS[this.i][1] + ': ' + keyName(e.code));
+        return;
+      }
+      if (e.code === 'Escape') { closePanel(); return; }
+      if (e.code === 'ArrowUp' || e.code === 'KeyW') this.i = (this.i + ACTIONS.length - 1) % ACTIONS.length;
+      else if (e.code === 'ArrowDown' || e.code === 'KeyS') this.i = (this.i + 1) % ACTIONS.length;
+      else if (e.code === 'Enter' || e.code === 'Space') this.wait = true;
+      this.draw();
+    },
+  };
+
+  // ================= 2 · logros =================
+  const L = (TH.logros = {
+    got: load(LOGROS, {}),
+    list: [
+      ['lanza', '🔱', 'Primera luz', 'Despierta la Lanza del Alba.'],
+      ['rasguno', '🛡️', 'Sin un rasguño', 'Gana un combate de dos o más enemigos sin recibir daño.'],
+      ['relampago', '⚡', 'Relámpago', 'Gana un combate de dos o más enemigos en la primera ronda.'],
+      ['sellos', '🔓', 'Rompesellos', 'Rompe todos los sellos de un ataque cargado.'],
+      ['perfecto', '🎯', 'Golpe a golpe', 'Consigue 8 timings perfectos en un mismo combate.'],
+      ['bloqueo', '✋', 'Muro', 'Bloquea 5 ataques en un mismo combate.'],
+      ['combo', '🔥', 'Combo completo', 'Llena las tres barras de combo.'],
+      ['cazador', '🗡️', 'Cazador de mareas', 'Derrota a 150 enemigos (contando todas tus partidas).'],
+      ['archivo', '📜', 'Archivero', 'Consigue la Llave de la Cámara del Archivero.'],
+      ['encargos', '📦', 'Barquero honrado', 'Completa todos los encargos.'],
+      ['fin', '🌅', 'Vael tiene mañanas', 'Termina la historia.'],
+      ['desafio', '💀', 'Desafío aceptado', 'Termina la historia en dificultad Desafío.'],
+      ['leviatan', '🐋', 'El que hizo el mar', 'Vence al Leviatán en el Abismo.'],
+      ['ngplus', '♻️', 'Otra vuelta', 'Empieza una Nueva partida+.'],
+    ],
+    has(id) { return !!this.got[id]; },
+    unlock(id) {
+      if (this.got[id]) return;
+      const l = this.list.find((x) => x[0] === id); if (!l) return;
+      this.got[id] = Date.now(); store(LOGROS, this.got);
+      TH.sfx && TH.sfx('level');
+      TH.ui.toast(l[1] + ' Logro: ' + l[2]);
+    },
+    count() { return this.list.filter((l) => this.got[l[0]]).length; },
+  });
+  const logrosPanel = {
+    draw() {
+      const rows = L.list.map(([id, ic, name, desc]) => '<div class="lg' + (L.has(id) ? ' on' : '') + '"><i>' + ic + '</i><b>' + esc(name) + '</b><small>' + esc(desc) + '</small></div>').join('');
+      box.innerHTML = '<h2>Logros · ' + L.count() + '/' + L.list.length + '</h2><div class="xl">' + rows + '</div><div class="xf"><button type="button" class="pm-btn" data-k="close">Cerrar</button></div>';
+      box.querySelector('[data-k=close]').onclick = closePanel;
+    },
+    key(e) { if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyX') closePanel(); else { const l = box.querySelector('.xl'); if (e.code === 'ArrowDown') l.scrollTop += 40; if (e.code === 'ArrowUp') l.scrollTop -= 40; } },
+  };
+  // logros que dependen del estado de la partida: se miran cada segundo
+  setInterval(() => {
+    const F = TH.flags; if (!F || !F.get) return;
+    if (F.get('res.lanza')) L.unlock('lanza');
+    if (F.get('archivo.fin')) L.unlock('archivo');
+    if (F.get('juego.fin')) { L.unlock('fin'); if (F.get('dif') === 'desafio') L.unlock('desafio'); }
+    if (F.get('jefe.leviatan')) L.unlock('leviatan');
+    if (F.get('ngplus')) L.unlock('ngplus');
+    if (TH.quests && TH.quests.list.length && TH.quests.list.every((q) => TH.quests.done(q))) L.unlock('encargos');
+    if (X.kills >= 150) L.unlock('cazador');
+  }, 1000);
+
+  // ================= 3 · velocidad de combate y seguimiento de logros en combate =================
+  const SPEEDS = [[1, 'Normal'], [1.5, 'Rápida ×1,5'], [2, 'Muy rápida ×2']];
+  const B = TH.BattleScene.prototype;
+  const upd = B.update;
+  B.update = function (dt) {
+    // las ventanas de timing (golpe y bloqueo) van siempre a velocidad normal
+    const sp = this.seq && !this.ring && !this.blockFx && this.state !== 'victory' ? X.bspeed || 1 : 1;
+    if (this.ring && this.ring.res === 'perfect' && !this.ring._c) { this.ring._c = true; this._perf = (this._perf || 0) + 1; if (this._perf >= 8) L.unlock('perfecto'); }
+    for (const e of this.enemies || []) if (e.charging && !e._sc && e.charging.seals.length && e.charging.seals.every((s) => !s.on)) { e._sc = true; L.unlock('sellos'); }
+    if (this.combo >= 300) L.unlock('combo');
+    return upd.call(this, dt * sp);
+  };
+  const setup = B.setup;
+  B.setup = function (retry) { this._perf = 0; this._blocks = 0; this._hurt = false; return setup.apply(this, arguments); };
+  const dmgP = B.damageParty;
+  B.damageParty = function (e, u, act, blocked) {
+    const before = TH.party.members[u.id] ? TH.party.members[u.id].hp : 0;
+    const r = dmgP.apply(this, arguments);
+    if (blocked) { this._blocks = (this._blocks || 0) + 1; if (this._blocks >= 5) L.unlock('bloqueo'); }
+    if (TH.party.members[u.id] && TH.party.members[u.id].hp < before) this._hurt = true;
+    return r;
+  };
+  const kill = B.kill;
+  B.kill = function (e) { if (!e.dead && !e.D.part) { X.kills = (X.kills || 0) + 1; saveX(); } return kill.apply(this, arguments); };
+  const vic = B.victory;
+  B.victory = function () {
+    const n = (this.enemies || []).filter((e) => !e.D.part).length;
+    if (n >= 2 && !this._hurt) L.unlock('rasguno');
+    if (n >= 2 && this.round === 1) L.unlock('relampago');
+    return vic.apply(this, arguments);
+  };
+
+  // ================= 4 · enemigos débiles: victoria rápida =================
+  const M = TH.MapScene.prototype;
+  const partyLv = () => {
+    const m = TH.scenes.registry.map, P = TH.party;
+    const ids = (m && m.order ? m.order : Object.keys(P.members)).slice(0, 3).filter((id) => P.members[id]);
+    return ids.length ? ids.reduce((s, id) => s + P.members[id].lv, 0) / ids.length : 1;
+  };
+  const isWeak = (f) => {
+    if (!X.quick || !f || f.boss || f.static || f.once || f.after || f.before || f.fullHeal || !f.group) return false;
+    const D = TH.data.enemies, exp = f.group.reduce((s, k) => s + ((D[k] && D[k].exp) || 0), 0);
+    if (f.group.some((k) => !D[k] || D[k].boss)) return false;
+    return exp > 0 && exp < 0.05 * TH.party.need(Math.floor(partyLv()));
+  };
+  TH.weakFoe = isWeak;
+  const updF = M.updateFoes;
+  M.updateFoes = function (dt, t, active) {
+    // los débiles no te ven: siguen su ronda y se apartan
+    const saved = [];
+    for (const f of this.foes || []) if (f.alive && isWeak(f)) { saved.push([f, f.sight]); f.sight = 0; if (f.state === 'chase') f.state = 'return'; f.alertT = 0; f.weak = true; f.alpha = 0.55; } else if (f.weak) { f.weak = false; f.alpha = null; }
+    const r = updF.call(this, dt, t, active);
+    for (const [f, s] of saved) f.sight = s;
+    return r;
+  };
+  const start = M.startBattle;
+  M.startBattle = function (f, advantage, ambush) {
+    if (!isWeak(f) || this.battle || TH.scenes.top() !== this) return start.apply(this, arguments);
+    // victoria rápida: la misma recompensa que el combate, sin entrar en él
+    const D = TH.data.enemies, P = TH.party;
+    let exp = 0, gold = 0; const items = [];
+    for (const k of f.group) {
+      const e = D[k]; exp += e.exp; gold += e.gold;
+      for (const d of e.drops || []) if (Math.random() < d.chance) { P.add(d.item, 1); items.push(TH.data.items[d.item].name); }
+      if (TH.bestiary) TH.bestiary.kill(k);
+      X.kills = (X.kills || 0) + 1;
+    }
+    saveX();
+    P.gold += gold;
+    const ids = (this.order || []).filter((id) => P.members[id]);
+    let up = [];
+    for (const id of ids) { const n = P.gainExp(id, exp); if (n) up.push(TH.chars.defs[id].name + ' Nv ' + P.members[id].lv); }
+    f.alive = false;
+    TH.sfx && TH.sfx(up.length ? 'level' : 'hit');
+    this.safeT = 0.6;
+    TH.ui.toast('Victoria rápida · +' + exp + ' EXP · +' + gold + ' oro' + (items.length ? ' · ' + items.join(', ') : '') + (up.length ? ' · ¡' + up.join(', ') + '!' : ''));
+    if (!TH.flags.get('tuto.debil')) { TH.flags.set('tuto.debil', true); setTimeout(() => TH.ui.toast('Los enemigos muy débiles ya no te persiguen: dales un golpe para vencerlos al instante. Se puede desactivar en Opciones.'), 2600); }
+  };
+
+  // ================= opciones =================
+  TH.optExtra = () => [
+    { label: 'Velocidad de combate', value: (SPEEDS.find((s) => s[0] === X.bspeed) || SPEEDS[0])[1], act: () => { const i = SPEEDS.findIndex((s) => s[0] === X.bspeed); X.bspeed = SPEEDS[(i + 1) % SPEEDS.length][0]; saveX(); } },
+    { label: 'Enemigos débiles', value: X.quick ? 'Victoria rápida' : 'Combatir siempre', act: () => { X.quick = !X.quick; saveX(); } },
+    { label: 'Logros', value: L.count() + '/' + L.list.length, act: () => openPanel(logrosPanel) },
+    ...(isMob() ? [] : [{ label: 'Teclas', value: 'Cambiar…', act: () => { keysPanel.i = 0; keysPanel.wait = false; openPanel(keysPanel); } }]),
+  ];
 })();
 
 </script>
