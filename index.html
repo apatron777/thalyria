@@ -6156,7 +6156,7 @@ void main(){
       return [
         { label: 'Continuar', act: () => TH.scenes.pop() },
         { label: 'Ranura de guardado', value: 'Ranura ' + (TH.save.slot + 1) + (TH.save.summary(TH.save.slot) ? '' : ' (vacía)'), act: () => TH.save.use((TH.save.slot + 1) % TH.save.N) },
-        { label: 'Guardar partida', value: 'en la ranura ' + (TH.save.slot + 1), act: () => TH.ui.toast(o.saveGame() ? 'Partida guardada en la ranura ' + (TH.save.slot + 1) : 'No se pudo guardar en este navegador') },
+        { label: 'Guardar partida', value: 'en la ranura ' + (TH.save.slot + 1), act: () => TH.ui.toast((TH.manualSave ? TH.manualSave(o) : o.saveGame()) ? 'Partida guardada en la ranura ' + (TH.save.slot + 1) : 'No se pudo guardar en este navegador') },
         { label: 'Cargar partida', value: 'de la ranura ' + (TH.save.slot + 1), act: () => { if (o.loadGame()) { TH.scenes.pop(); TH.ui.toast('Partida cargada (ranura ' + (TH.save.slot + 1) + ')'); } else TH.ui.toast('La ranura ' + (TH.save.slot + 1) + ' está vacía'); } },
         ...(TH.dif ? [{ label: 'Dificultad', value: TH.dif.label(), act: () => TH.dif.cycle() }] : []),
         { label: 'Velocidad del texto', value: TH.settings.speedLabel(), act: () => TH.settings.cycleSpeed() },
@@ -6176,12 +6176,15 @@ void main(){
         { label: 'Calidad gráfica', value: TH.settings.lab(TH.settings.QUALITY, TH.settings.quality), act: () => { TH.settings.cyc('quality', TH.settings.QUALITY); TH.perf && TH.perf.apply(); } },
         { label: 'Mostrar FPS', value: TH.ui.showFps ? 'Sí' : 'No', act: () => TH.ui.toggleFps() },
         { label: 'Adelantar 3 horas', act: () => { c.hour = (c.hour + 3) % 24; TH.ui.toast('Ahora son las ' + String(Math.floor(c.hour)).padStart(2, '0') + ':00'); } },
-        { label: 'Guardar y volver al título', act: () => { o.saveGame(); TH.scenes.pop(); TH.scenes.push('title'); } },
+        { label: 'Guardar y volver al título', act: () => { if (TH.manualSave) TH.manualSave(o); else o.saveGame(); TH.scenes.pop(); TH.scenes.push('title'); } },
         { label: 'Desatascar: volver a la entrada', act: () => {
           // red de seguridad: si el grupo se queda encajado, vuelve a la entrada de la zona sin perder nada
           const m = TH.scenes.registry.map, def = m.map.def, en = Object.keys(def.entries || {})[0];
           TH.scenes.pop();
+          // si una escena se ha quedado colgada, se cierra y se repara el grupo según la historia
+          if (m.inCutscene && TH.forceEndScenes) TH.forceEndScenes(m);
           if (m.inCutscene) return;
+          if (TH.storySane) TH.storySane(m);
           m.enter(en ? { map: m.mapId, entry: en, quiet: true } : { map: m.mapId, pos: { x: def.start.c * 16 + 8, y: def.start.r * 16 + 8 }, quiet: true });
           TH.ui.toast('Has vuelto a la entrada de ' + (def.name || 'la zona'));
         } },
@@ -10025,7 +10028,7 @@ void main(){
           if (mm) { const slot = c.slot || 'weapon'; if (mm.equip[slot] && !c.replace) TH.party.add(mm.equip[slot], 1); mm.equip[slot] = c.item; TH.party.clamp(c.equip); }
           return null;
         }
-        case 'save': o.saveGame(); return null;
+        case 'save': if (c.save === 'manual' && TH.manualSave) TH.manualSave(o); else o.saveGame(); return null;
         case 'js': try { c.js(this); } catch (e) { console.warn('js op', e); } return null;
         // nivel mínimo de un miembro (al unirse al grupo) · velocidad del reloj (0 = detenido)
         case 'level': { const P = TH.party, mm = P.members[c.level]; if (mm && mm.lv < c.lv) { mm.lv = c.lv; mm.exp = 0; } P.healAll(); return null; }
@@ -22253,8 +22256,8 @@ void main(){
     {
       who: 'kaelen', e: 'neutral', t: '(¿Qué quieres hacer?)',
       choice: [
-        { t: 'Guardar aquí y seguir', then: [{ save: true }, { js: () => TH.ui.toast('Partida guardada en la ranura ' + (TH.save.slot + 1)) }] },
-        { t: 'Guardar y dejar una copia en otra ranura', then: [{ save: true }, { js: () => {
+        { t: 'Guardar aquí y seguir', then: [{ save: 'manual' }, { js: () => TH.ui.toast('Partida guardada en la ranura ' + (TH.save.slot + 1)) }] },
+        { t: 'Guardar y dejar una copia en otra ranura', then: [{ save: 'manual' }, { js: () => {
           const SV = TH.save, m = TH.scenes.registry.map, i = otherSlot();
           const ok = SV.write(m.state(), i);
           TH.ui.toast(ok ? 'Copia guardada en la ranura ' + (i + 1) + ': desde ahí podrás ver el otro final' : 'No se pudo guardar la copia');
@@ -22576,6 +22579,116 @@ void main(){
   G.continueGame = function () { const r = cont.apply(this, arguments); fixRoster(); check(); return r; };
   const M = TH.MapScene.prototype, load = M.loadGame;
   M.loadGame = function () { const r = load.apply(this, arguments); if (r) { fixRoster(); check(); } return r; };
+})();
+
+</script>
+  <script>/* data/guardado.js */
+// Guardado solo a mano (desde el menú) y reparaciones de atascos de historia.
+// · Antes el juego guardaba solo cada 20 segundos, al cambiar de zona y al final de muchas escenas. Si una
+//   escena se cortaba a medias (p. ej. el duelo con Varek), ese estado roto quedaba guardado y no había vuelta atrás.
+//   Ahora solo se guarda con «Guardar partida» del menú (o al elegir guardar en un aviso). El autoguardado se
+//   puede volver a activar en Opciones.
+// · Recordatorio discreto si llevas mucho rato sin guardar.
+// · Duelo con Varek (capítulo 3): si se corta, el grupo vuelve completo y hablando con Varek se repite la escena.
+// · «Desatascar» del menú también cierra escenas colgadas y repara el grupo.
+(function () {
+  'use strict';
+  const TH = window.TH, F = TH.flags, MS = TH.MapScene.prototype, S = TH.data.scripts, T = TH.data.talk;
+  const KEY = 'thalyria.autosave';
+  let auto = false;
+  try { auto = localStorage.getItem(KEY) === '1'; } catch (e) { /* sin almacenamiento */ }
+  const now = () => performance.now();
+  let manual = false, lastSave = now(), warned = 0;
+
+  const realSave = MS.saveGame;
+  MS.saveGame = function () {
+    if (!manual && !auto) return false;
+    const ok = realSave.apply(this, arguments);
+    if (ok) { lastSave = now(); warned = 0; }
+    return ok;
+  };
+  TH.manualSave = function (m) {
+    m = m || TH.scenes.registry.map;
+    manual = true;
+    try { return m.saveGame(); } finally { manual = false; }
+  };
+
+  // los avisos de las escenas decían «Partida guardada»: ahora recuerdan cómo guardar
+  const toast = TH.ui.toast;
+  TH.ui.toast = function (t) {
+    if (!manual && !auto && typeof t === 'string' && /Partida guardada/.test(t) && !/ranura/.test(t)) {
+      const rest = t.replace(/\s*·?\s*Partida guardada\.?/, '').trim();
+      arguments[0] = rest ? rest + ' · Guarda desde el menú' : 'Recuerda guardar desde el menú';
+    }
+    return toast.apply(this, arguments);
+  };
+
+  // opción para quien prefiera el autoguardado
+  const extra = TH.optExtra;
+  TH.optExtra = () => [
+    { label: 'Autoguardado', value: auto ? 'Sí' : 'No (solo desde el menú)', act: () => {
+      auto = !auto; try { localStorage.setItem(KEY, auto ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
+    } },
+  ].concat(extra ? extra() : []);
+
+  // ---------------- historia: el duelo con Varek ----------------
+  // al aceptar el duelo el grupo se queda en «solo Firion» hasta ganarlo; si se corta, se recupera
+  const enDuelo = () => F.get('cap3.varek') && !F.get('cap3.varek.ido');
+  TH.storySane = function (m) {
+    m = m || TH.scenes.registry.map;
+    if (!m || !m.members) return;
+    const mem = m.members();
+    if (enDuelo() && mem.length === 1 && mem[0] === 'firion') {
+      const ids = ['kaelen', 'elara', 'flint', 'firion'].filter((id) => id === 'kaelen' || id === 'firion' || F.get('grupo.' + id) !== false);
+      m.setRoster(ids, 'kaelen');
+    }
+    if (TH.fixRoster) TH.fixRoster();
+  };
+  // Varek espera en la escalera: si la escena quedó a medias, hablar con él la repite
+  if (T) T.varek = [
+    { if: ['cap3.varek', '!cap3.varek.ido'], then: [{ call: 'cap3.varek' }], else: [{ say: '@npc', e: 'neutral', t: '…' }] },
+  ];
+
+  // ---------------- escenas colgadas ----------------
+  TH.forceEndScenes = function (m) {
+    const st = TH.scenes.stack;
+    for (let i = st.length - 1; i >= 0; i--) {
+      const s = st[i];
+      if (s.constructor.name === 'CutsceneScene') {
+        try { s.exit && s.exit(); } catch (e) { /* seguir */ }
+        st.splice(i, 1);
+      }
+    }
+    m.inCutscene = false; m.groupScene = false; m.camLock = null; m.zoom = 1; m.shake = 0; m.fadeA = 0;
+    for (const n of m.npcs || []) n.scripted = false;
+    try { TH.dialog.close(); TH.choices.close(); } catch (e) { /* seguir */ }
+    if (TH.cine && TH.cine.bars) try { TH.cine.bars(false); } catch (e) { /* seguir */ }
+  };
+
+  // ---------------- comprobaciones en marcha ----------------
+  const upd = MS.update;
+  MS.update = function (dt) {
+    const r = upd.apply(this, arguments);
+    if (!TH.game || !TH.game.started || this.inCutscene || this.trans || TH.scenes.top() !== this) return r;
+    // el grupo no puede quedarse en «solo Firion» fuera del duelo
+    if (enDuelo() && this.count === 1 && this.order[0] === 'firion') TH.storySane(this);
+    // recordatorio: cada 12 minutos sin guardar
+    if (!auto && now() - lastSave > 12 * 60e3 && now() - warned > 12 * 60e3) {
+      warned = now();
+      TH.ui.toast('Llevas un rato sin guardar · Menú → Guardar partida');
+    }
+    return r;
+  };
+
+  // al cargar una partida se repara lo que se hubiera guardado roto
+  const load = MS.loadGame;
+  MS.loadGame = function () {
+    const r = load.apply(this, arguments);
+    if (r) { lastSave = now(); warned = 0; TH.storySane(this); }
+    return r;
+  };
+  const G = TH.game, cont = G.continueGame;
+  G.continueGame = function () { const r = cont.apply(this, arguments); lastSave = now(); TH.storySane(); return r; };
 })();
 
 </script>
