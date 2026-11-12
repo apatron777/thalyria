@@ -22890,14 +22890,19 @@ void main(){
   // ======================================================================
   const MS = TH.MapScene.prototype;
   const upd = MS.update;
+  const AX = { x: 0, y: 0 };
   MS.update = function (dt) {
+    // se entra empujando hacia arriba (teclado, cruceta o joystick) o pulsando acción delante de la puerta
+    const act = TH.input.edge.has('a');
     const r = upd.apply(this, arguments);
     const doors = this.map && this.map.def.doors, L = this.leader;
     if (!doors || this.trans || this.inCutscene || TH.scenes.top() !== this || !L) return r;
-    if (!TH.input.held.has('up') || L.dir !== 'up') return r;
+    TH.input.axis(AX);
+    const push = AX.y < -0.4 && Math.abs(AX.x) < 0.8;
+    if (!push && !act) return r;
     for (const d of doors) {
       const xc = d.c * 16 + 8, yFront = (d.r + 1) * 16;
-      if (Math.abs(L.x - xc) > 8 || L.y < yFront || L.y > yFront + 9) continue;
+      if (Math.abs(L.x - xc) > 12 || L.y < yFront - 2 || L.y > yFront + (act ? 28 : 14)) continue;
       if (d.if && !TH.flags.test(d.if)) { if (!this._doorMsg || this._doorMsg < performance.now()) { TH.ui.toast(d.msg || 'Está cerrado.'); this._doorMsg = performance.now() + 2500; } return r; }
       TH.sfx('ok');
       this.changeZone(d.to, d.entry);
