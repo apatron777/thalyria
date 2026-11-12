@@ -4950,8 +4950,11 @@ void main(){
       TH.music.setZone(d.map, def);
       const m = this.map, p = this.leader;
       if (d.count) this.count = d.count; else if (d.solo != null) this.solo = !!d.solo;
-      if (d.order && d.order.length === 4 && d.order.every((id) => TH.chars.defs[id])) {
-        this.order = d.order.slice();
+      // el orden guardado manda (antes se exigían 4 y, con Oslo, son 5: se perdía el grupo al cargar)
+      if (d.order && d.order.length && d.order.every((id) => TH.chars.defs[id])) {
+        const o = d.order.slice();
+        for (const id of TH.chars.PARTY) if (o.indexOf(id) < 0) o.push(id);
+        this.order = o;
         this.party.forEach((a, i) => setDef(a, this.order[i]));
       }
       p.x = def.start.c * TS + 8; p.y = def.start.r * TS + 12;
@@ -11309,7 +11312,7 @@ void main(){
     // NPCs · if: condición de historia para estar en el mapa (de noche, durante la defensa, el pueblo se encierra)
     npcs: [
       { id: 'ilun', c: 5, r: 6, ai: 'idle', dir: 'right' },
-      { id: 'elara', talk: 'elara_claro', c: 6.6, r: 6.6, ai: 'idle', dir: 'left', if: '!grupo.elara' },
+      { id: 'elara', talk: 'elara_claro', c: 6.6, r: 6.6, ai: 'idle', dir: 'left', if: ['!grupo.elara', '!cap1.fin'] }, // solo en el prólogo, antes de unirse
       { id: 'flint', talk: 'flint_dia', c: 27.4, r: 18.3, ai: 'idle', dir: 'down', if: '!grupo.flint' },
       { id: 'halvard', c: 34, r: 8, ai: 'idle', dir: 'down' },
       { id: 'mira', c: 20, r: 12, ai: 'wander', radius: 3, if: DIA },
@@ -11840,7 +11843,7 @@ void main(){
     jumps: [[30, 33, 11], [2, 4, 11]],
     vines: [[1, 11]],
     npcs: [
-      { id: 'firion', c: 32.5, r: 8.4, dir: 'up', ai: 'idle', if: '!grupo.firion' },
+      { id: 'firion', c: 32.5, r: 8.4, dir: 'up', ai: 'idle', if: ['!grupo.firion', '!cap1.fin'] }, // en su puesto solo hasta unirse
       { id: 'sailor', variant: 9, talk: 'intendente', c: 29, r: 10.6, ai: 'idle', dir: 'down' },
       { id: 'fisher', variant: 10, talk: 'vigia_viejo', c: 9, r: 14.5, ai: 'wander', radius: 2 },
     ],
@@ -22549,10 +22552,26 @@ void main(){
     setTimeout(go, 300);
   };
   TH.resumeChapter = check;
+  // repara el grupo de partidas guardadas con un orden equivocado (al cargar se perdía el orden y
+  // entraban personajes que la historia dice que no están, como Elara raptada en el capítulo 2)
+  const away = (id) => F.get('grupo.' + id) === false || (id === 'flint' && F.get('cap1.fin') && !F.get('cap2.fin') && !F.get('cap2.flint'));
+  const fixRoster = () => {
+    const m = TH.scenes.registry.map;
+    if (!m || !m.members) return;
+    const mem = m.members();
+    if (!mem.some(away)) return;
+    const keep = mem.filter((id) => !away(id));
+    for (const id of m.order) {
+      if (keep.length >= mem.length) break;
+      if (keep.indexOf(id) < 0 && !away(id) && (id === 'kaelen' || F.get('grupo.' + id))) keep.push(id);
+    }
+    if (keep.length) m.setRoster(keep, keep[0]);
+  };
+  TH.fixRoster = fixRoster;
   const G = TH.game, cont = G.continueGame;
-  G.continueGame = function () { const r = cont.apply(this, arguments); check(); return r; };
+  G.continueGame = function () { const r = cont.apply(this, arguments); fixRoster(); check(); return r; };
   const M = TH.MapScene.prototype, load = M.loadGame;
-  M.loadGame = function () { const r = load.apply(this, arguments); if (r) check(); return r; };
+  M.loadGame = function () { const r = load.apply(this, arguments); if (r) { fixRoster(); check(); } return r; };
 })();
 
 </script>
