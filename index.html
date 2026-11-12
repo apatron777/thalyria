@@ -22381,6 +22381,86 @@ void main(){
 })();
 
 </script>
+  <script>/* data/mundo.js */
+// Mundo conectado: todo se puede recorrer a pie o en barca, como en Pokémon.
+// · Por mar: cada puerto se abre en cuanto la historia te lleva allí (al EMPEZAR el capítulo, no al acabarlo),
+//   y desde cualquier muelle se navega a cualquier puerto abierto (la ruta pasa por Bruma si no hay una directa).
+// · A pie: en la isla de Thalyria, la Biblioteca, las Ruinas y la Ciudad Dorada quedan unidas por caminos;
+//   cada camino se abre cuando la historia llega a ese lugar (antes, un aviso explica por qué no se puede pasar).
+(function () {
+  'use strict';
+  const TH = window.TH, D = TH.data, F = TH.flags, M = D.maps, W = D.world;
+
+  // ---------------- por mar ----------------
+  if (W) {
+    const port = (id) => W.ports.find((p) => p.id === id);
+    const isl = (id) => W.islands.find((i) => i.id === id);
+    // el Muelle de las Raíces (bosque) se abre al empezar el capítulo 2; las Ruinas, al empezar el 3
+    if (port('raices')) port('raices').unlock = 'cap2.empezado';
+    if (port('ruinas')) port('ruinas').unlock = 'cap3.empezado';
+    const open = { oeste: 'cap2.empezado', sur: 'cap3.empezado' };
+    for (const id in open) {
+      const I = isl(id);
+      if (!I) continue;
+      const base = Object.getOwnPropertyDescriptor(I, 'unlock');
+      const old = base && base.get ? base.get : () => (base ? base.value : null);
+      Object.defineProperty(I, 'unlock', { get: () => (F.get(open[id]) ? null : old()), configurable: true });
+    }
+    // y sus barcas, desde el mismo momento
+    for (const [map, p] of [['bosque', 'raices'], ['ruinas', 'ruinas']]) {
+      const b = M[map] && (M[map].boats || []).find((x) => x.port === p);
+      if (b) b.if = p === 'raices' ? 'cap2.empezado' : 'cap3.empezado';
+    }
+    // rutas: si dos puertos no tienen ruta propia, se navega pasando por Bruma
+    const WS = TH.WorldScene && TH.WorldScene.prototype;
+    if (WS) {
+      const route = WS.route;
+      WS.route = function (a, b) {
+        const R = this.D.routes, has = (x, y) => R[x + '>' + y] || R[y + '>' + x];
+        const get = (x, y) => (R[x + '>' + y] ? R[x + '>' + y].slice() : R[y + '>' + x] ? R[y + '>' + x].slice().reverse() : null);
+        if (!has(a.id, b.id) && a.id !== 'bruma' && b.id !== 'bruma') {
+          const p1 = get(a.id, 'bruma'), p2 = get('bruma', b.id);
+          if (p1 && p2) {
+            // de «a» al centro del mar de Bruma y de ahí a «b», sin repetir el punto de giro
+            const hub = p1[p1.length - 1];
+            const rest = p2.length && Math.hypot(p2[0][0] - hub[0], p2[0][1] - hub[1]) < 2 ? p2.slice(1) : p2;
+            return [[a.x, a.y + 4]].concat(p1, rest, [[b.x, b.y + 4]]);
+          }
+        }
+        return route.call(this, a, b);
+      };
+    }
+  }
+
+  // ---------------- a pie: isla de Thalyria ----------------
+  const link = (a, ra, ea, b, rb, eb, opt) => {
+    // salida en el mapa «a» (rect ra) que lleva a la entrada «eb» de «b», y al revés
+    if (!M[a] || !M[b]) return;
+    M[a].exits = (M[a].exits || []).concat([Object.assign({ rect: ra, to: b, entry: eb }, opt && opt.ab)]);
+    M[b].exits = (M[b].exits || []).concat([Object.assign({ rect: rb, to: a, entry: ea }, opt && opt.ba)]);
+  };
+  const entry = (map, id, c, r, dir) => { if (M[map]) M[map].entries[id] = { c, r, dir }; };
+  // Ruinas (este) ↔ Ciudad Dorada (oeste): se abre al empezar el capítulo 4
+  entry('ruinas', 'este', 36.4, 19.6, 'left');
+  entry('ciudad', 'oeste', 1.6, 22.6, 'right');
+  link('ruinas', [37, 19, 1, 2], 'este', 'ciudad', [0, 22, 1, 2], 'oeste', {
+    ab: { if: 'cap3.fin', msg: 'Un derrumbe corta el camino del este. Más adelante quizá se pueda pasar.' },
+  });
+  // Ruinas (oeste) ↔ Biblioteca de las Dos Épocas (este): se abre al empezar el capítulo 5
+  entry('ruinas', 'oeste', 1.6, 20.6, 'right');
+  entry('biblioteca', 'este', 32.4, 18.6, 'left');
+  link('ruinas', [0, 20, 1, 2], 'oeste', 'biblioteca', [33, 18, 1, 2], 'este', {
+    ab: { if: 'cap4.fin', msg: 'El sendero del oeste lleva a una biblioteca sellada. Todavía no se abre.' },
+  });
+  // carteles para que se vea que por ahí se va a otro sitio
+  const sign = (map, c, r, text) => { if (M[map]) M[map].signs = (M[map].signs || []).concat([{ c, r, text }]); };
+  sign('ruinas', 35.6, 17.4, 'Camino del este: Ciudad Dorada.');
+  sign('ruinas', 2.4, 18.4, 'Sendero del oeste: Biblioteca de las Dos Épocas.');
+  sign('ciudad', 2.4, 20.4, 'Al oeste: Ruinas de Thalyria.');
+  sign('biblioteca', 31.6, 16.4, 'Al este: Ruinas de Thalyria.');
+})();
+
+</script>
   <script>/* engine/movil.js */
 // Capa móvil: Thalyria pensado para smartphone.
 // - En horizontal: el juego a toda la pantalla, joystick flotante (aparece donde pones el dedo, en la mitad izquierda),
