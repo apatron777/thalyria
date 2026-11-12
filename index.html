@@ -22323,6 +22323,64 @@ void main(){
 })();
 
 </script>
+  <script>/* data/reanudar.js */
+// Reanudar capítulos: cada final de capítulo guarda la partida y, justo después, lanza la escena
+// que empieza el siguiente (que te lleva al mapa nuevo). Si se carga esa partida, o se cierra el
+// juego antes de que acabe esa escena, el jugador aparecía en el mapa del final sin nada que hacer.
+// Ahora, al cargar, si un capítulo está terminado y el siguiente no ha empezado, se lanza solo.
+// Sirve también para partidas guardadas antes de este arreglo.
+(function () {
+  'use strict';
+  const TH = window.TH, S = TH.data.scripts, F = TH.flags;
+  // para cada capítulo: cómo saber que ya empezó (lo marca su escena de inicio)
+  const STARTED = {
+    2: () => F.get('cap2.empezado'),
+    3: () => F.get('cap3.empezado'),
+    4: () => F.get('objetivo') !== 'cap4',
+    5: () => F.get('epoca.biblioteca') != null && F.get('objetivo') !== 'cap5',
+    6: () => F.get('objetivo') !== 'cap6',
+    7: () => F.get('objetivo') !== 'cap7',
+    8: () => F.get('objetivo') !== 'cap8',
+  };
+  // el final del capítulo 4 no marcaba el objetivo: se añade antes de guardar
+  {
+    const E = S['cap4.fin'];
+    if (E) { const i = E.findIndex((o) => o.save); E.splice(i >= 0 ? i : E.length, 0, { set: { objetivo: 'cap5' } }); }
+  }
+  TH.pendingChapter = function () {
+    for (let n = 8; n >= 2; n--) {
+      if (!F.get('cap' + (n - 1) + '.fin')) continue;
+      if (F.get('cap' + n + '.fin')) return null; // ya está más adelante
+      return STARTED[n]() ? null : n;
+    }
+    return null;
+  };
+  let busy = false;
+  const check = () => {
+    if (busy) return;
+    const n = TH.pendingChapter();
+    if (!n || !S['cap' + n + '.inicio']) return;
+    busy = true;
+    // espera a que el mapa esté listo y sin escenas en marcha
+    let tries = 0;
+    const go = () => {
+      const top = TH.scenes.top();
+      if (top && top === TH.scenes.registry.map && !TH.scenes.stack.some((s) => s.constructor.name === 'CutsceneScene')) {
+        busy = false;
+        TH.cutscene.play('cap' + n + '.inicio', { cinematic: true });
+      } else if (++tries < 60) setTimeout(go, 100);
+      else busy = false;
+    };
+    setTimeout(go, 300);
+  };
+  TH.resumeChapter = check;
+  const G = TH.game, cont = G.continueGame;
+  G.continueGame = function () { const r = cont.apply(this, arguments); check(); return r; };
+  const M = TH.MapScene.prototype, load = M.loadGame;
+  M.loadGame = function () { const r = load.apply(this, arguments); if (r) check(); return r; };
+})();
+
+</script>
   <script>/* engine/movil.js */
 // Capa móvil: Thalyria pensado para smartphone.
 // - En horizontal: el juego a toda la pantalla, joystick flotante (aparece donde pones el dedo, en la mitad izquierda),
