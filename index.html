@@ -1548,6 +1548,16 @@ void main(){
       if (R(c, r, 9) < 0.3) px(g, x + ((R(c, r, 10) * 14) | 0), y + ((R(c, r, 11) * 14) | 0), G0b, 2, 1);
     },
     // tablones del muelle; los huecos se dejan transparentes para ver el agua
+    // tarima de interior: tablones cálidos, sin bordes de muelle ni agua
+    floor(g, c, r, x, y) {
+      for (let b = 0; b < 4; b++) {
+        const by = y + b * 4, k = R(c, r * 4 + b, 17);
+        px(g, x, by, k < 0.33 ? '#6a4428' : k < 0.66 ? '#74492a' : '#7c5030', 16, 4);
+        px(g, x, by, '#8a5c36', 16, 1); px(g, x, by + 3, '#4a2e1c', 16, 1);
+        const j = ((R(c, r * 4 + b, 18) * 12) | 0) + 2; px(g, x + j, by, '#4a2e1c', 1, 4);
+        if (R(c, r * 4 + b, 19) < 0.3) px(g, x + ((R(c, r, 20 + b) * 12) | 0) + 2, by + 1, '#5a3a22', 2, 1);
+      }
+    },
     dock(g, map, c, r, x, y) {
       for (let b = 0; b < 4; b++) {
         const by = y + b * 4;
@@ -2130,6 +2140,167 @@ void main(){
   for (let v = 0; v < 4; v++) {}
   D.beacon = { w: 40, h: 74, ax: 20, ay: 72, shadow: [9, 2, 1], layers: [L('b', beacon)], box: [-8, -6, 8, 1], occluder: true,
     lights: [{ dx: 0, dy: -60, r: 80, c: [255, 230, 160], a: 1, always: 0.4 }], emissive: [{ dx: -6, dy: -63, w: 12, h: 8 }], beam: { dx: 0, dy: -60 } };
+})();
+
+</script>
+<script>/* sprites/interior.js */
+// Muebles y paredes para los interiores (casas, fragua y la posada La Gaviota).
+// Mismo sistema que props.js: cada pieza se pinta una vez en su lienzo y se coloca por casillas.
+(function () {
+  'use strict';
+  const TH = window.TH, D = TH.props.defs;
+  const px = (g, x, y, c, w, h) => { g.fillStyle = c; g.fillRect(x | 0, y | 0, w || 1, h || 1); };
+  const ell = (g, x, y, rx, ry, c) => TH.ell(g, x, y, rx, ry, c);
+  const L = (k, build) => ({ k, build, sway: 0 });
+  const WOOD = ['#2a1810', '#4a2e1c', '#6a4428', '#8a5c36', '#a8743f'];
+  const plank = (g, x, y, w, h, light) => {
+    px(g, x, y, light ? WOOD[3] : WOOD[2], w, h);
+    for (let yy = y; yy < y + h; yy += 4) px(g, x, yy, WOOD[1], w, 1);
+    for (let k = 0; k < w; k += 11) px(g, x + k, y, 'rgba(0,0,0,.12)', 1, h);
+  };
+
+  // ---------- pared del fondo (32 px de ancho, cubre dos casillas) ----------
+  // v: 0 lisa · 1 ventana · 2 cuadro de un barco · 3 balda con platos · 4 red y remos · 5 mapa del archipiélago
+  function muro(g, v) {
+    plank(g, 0, 6, 32, 36, false);
+    px(g, 0, 4, WOOD[0], 32, 3); px(g, 0, 4, WOOD[3], 32, 1);
+    px(g, 0, 40, WOOD[0], 32, 3); px(g, 0, 43, '#1a100a', 32, 3);
+    px(g, 0, 6, WOOD[1], 2, 34); px(g, 30, 6, WOOD[1], 2, 34);
+    if (v === 1) {
+      px(g, 8, 12, WOOD[0], 16, 16); px(g, 9, 13, '#3c5a8a', 14, 14); px(g, 9, 13, '#6a92c4', 14, 5);
+      px(g, 15, 13, WOOD[0], 2, 14); px(g, 9, 19, WOOD[0], 14, 2);
+      px(g, 7, 27, WOOD[4], 18, 2); px(g, 10, 25, '#5fae5a', 3, 2); px(g, 19, 25, '#e86a7a', 3, 2);
+      px(g, 6, 11, '#c8382c', 3, 15); px(g, 23, 11, '#c8382c', 3, 15);
+    } else if (v === 2) {
+      px(g, 8, 13, '#c89a3a', 16, 12); px(g, 9, 14, '#3a6a9a', 14, 10); px(g, 9, 20, '#2a4a7a', 14, 4);
+      px(g, 14, 15, '#efe3c8', 1, 5); px(g, 12, 16, '#efe3c8', 2, 3); px(g, 15, 16, '#efe3c8', 2, 3); px(g, 11, 20, '#6a4428', 8, 2);
+    } else if (v === 3) {
+      px(g, 4, 20, WOOD[4], 24, 2); px(g, 4, 22, WOOD[0], 24, 1);
+      for (let i = 0; i < 4; i++) { ell(g, 8 + i * 6, 16, 2.5, 3.5, i % 2 ? '#e8e0cc' : '#7ab8d8'); px(g, 7 + i * 6, 16, '#ffffff', 1, 1); }
+      px(g, 6, 28, WOOD[4], 20, 2); px(g, 9, 24, '#b8402c', 4, 4); px(g, 19, 25, '#e8b84a', 4, 3);
+    } else if (v === 4) {
+      for (let y = 10; y < 30; y += 3) for (let x = 6; x < 26; x += 3) px(g, x, y, '#c8b48a', 1, 1);
+      px(g, 5, 9, '#8a744e', 22, 1); px(g, 2, 12, WOOD[4], 2, 26); px(g, 1, 34, WOOD[3], 4, 5);
+    } else if (v === 5) {
+      px(g, 6, 11, '#e8d8b0', 20, 16); px(g, 6, 11, '#c8b48a', 20, 1);
+      ell(g, 14, 19, 5, 3, '#6aa05a'); ell(g, 20, 15, 2, 2, '#6aa05a'); ell(g, 10, 14, 2, 1.5, '#6aa05a'); px(g, 21, 22, '#c8382c', 2, 2);
+    }
+  }
+  D.muro = { w: 32, h: 46, ax: 16, ay: 44, layers: [L('b', muro)], box: [-16, -14, 16, 1] };
+  // pared lateral (una casilla de ancho, de arriba abajo de la estancia la ponen los mapas fila a fila)
+  function lado(g) { px(g, 0, 0, WOOD[0], 8, 16); px(g, 1, 0, WOOD[1], 6, 16); px(g, 2, 0, WOOD[2], 2, 16); }
+  D.lado = { w: 8, h: 16, ax: 4, ay: 14, layers: [L('b', lado)], box: [-4, -14, 4, 1] };
+
+  // ---------- chimenea (v0) y horno de pan (v1) ----------
+  function chimenea(g, v) {
+    for (let y = 0; y < 40; y += 5) for (let x = (y / 5) % 2 ? 0 : 3; x < 32; x += 7) { px(g, x, y, '#5d5651', 6, 4); px(g, x, y, '#7d746c', 6, 1); }
+    px(g, 0, 0, '#3a3430', 32, 2);
+    px(g, 2, 10, '#2a2420', 28, 3); px(g, 2, 10, '#9a8a7a', 28, 1);
+    if (v === 1) { for (let y = 0; y < 14; y++) { const w = y < 5 ? 10 + y * 2 : 20; px(g, 16 - w / 2, 20 + y, '#140a06', w, 1); } }
+    else px(g, 6, 18, '#140a06', 20, 18);
+    // brasas y troncos
+    px(g, 8, 32, '#4a2e1c', 16, 3); px(g, 10, 30, '#6a4428', 12, 2);
+    px(g, 9, 29, '#ff7a2a', 14, 2); px(g, 11, 27, '#ffb84a', 10, 2); px(g, 13, 24, '#ffd77a', 6, 3); px(g, 15, 22, '#fff2b0', 2, 2);
+    if (v === 1) { px(g, 6, 13, '#c89a5a', 6, 3); px(g, 20, 13, '#c89a5a', 6, 3); px(g, 13, 13, '#e8c07a', 6, 3); }
+    else { px(g, 4, 6, '#c8b48a', 3, 4); px(g, 25, 5, '#7ab8d8', 3, 5); px(g, 14, 4, '#e8b84a', 4, 6); }
+  }
+  D.chimenea = { w: 32, h: 40, ax: 16, ay: 38, layers: [L('b', chimenea)], box: [-15, -10, 15, 1],
+    emissive: [{ dx: -7, dy: -14, w: 14, h: 10 }], lights: [{ dx: 0, dy: -10, r: 80, c: [255, 150, 70], a: 1, always: 0.6, flicker: 2 }], sparks: [0, -12] };
+
+  // ---------- barra del posadero (tramo de 32 px) ----------
+  function barra(g, v) {
+    px(g, 0, 8, WOOD[1], 32, 14); for (let x = 2; x < 32; x += 8) px(g, x, 10, WOOD[2], 6, 10);
+    px(g, 0, 4, WOOD[4], 32, 4); px(g, 0, 4, '#c89058', 32, 1); px(g, 0, 8, WOOD[0], 32, 1);
+    if (v % 2 === 0) { px(g, 5, 0, '#e8e0cc', 4, 4); px(g, 6, 1, '#d89a3a', 2, 3); px(g, 21, 1, '#7ab8d8', 3, 3); }
+    else { px(g, 12, 1, '#e8e0cc', 4, 3); px(g, 13, 1, '#d89a3a', 2, 2); px(g, 24, 0, '#5a8a3a', 2, 4); }
+  }
+  D.barra = { w: 32, h: 22, ax: 16, ay: 20, shadow: [15, 2, 1], layers: [L('b', barra)], box: [-16, -10, 16, 1] };
+
+  // ---------- estantería: v0 botellas · v1 libros · v2 tarros y quesos ----------
+  function estante(g, v) {
+    px(g, 0, 0, WOOD[1], 30, 36); px(g, 2, 2, WOOD[0], 26, 32);
+    for (const y of [11, 22, 33]) { px(g, 1, y, WOOD[3], 28, 2); }
+    const C = v === 1 ? ['#8a2a2a', '#2a5a8a', '#3a7a3a', '#c8a03a', '#6a3a8a'] : v === 2 ? ['#d8b860', '#e8d8b0', '#b86a3a', '#e8c07a', '#a8c8a8'] : ['#3a7a5a', '#8a3a2a', '#c8a03a', '#4a6aaa', '#e8e0cc'];
+    for (const y of [3, 14, 25]) for (let x = 3, i = 0; x < 27; i++) {
+      const w = v === 1 ? 2 + (i % 2) : 3, h = v === 1 ? 6 + (i % 3) : v === 2 ? 5 : 7 - (i % 2) * 2, c = C[(i + y) % C.length];
+      px(g, x, y + 8 - h, c, w, h); if (v === 0) px(g, x + 1, y + 8 - h - 1, '#2a1810', 1, 1); px(g, x, y + 8 - h, 'rgba(255,255,255,.25)', 1, h);
+      x += w + (v === 1 ? 0 : 1);
+    }
+  }
+  D.estante = { w: 30, h: 38, ax: 15, ay: 36, layers: [L('b', estante)], box: [-14, -6, 14, 1] };
+
+  // ---------- mesa: v0 jarras · v1 pan · v2 naipes · v3 carta náutica y catalejo ----------
+  function mesa(g, v) {
+    ell(g, 14, 10, 13, 7, WOOD[0]); ell(g, 14, 9, 12, 6, WOOD[3]); ell(g, 14, 8, 11, 5, WOOD[4]);
+    px(g, 5, 13, WOOD[1], 2, 6); px(g, 21, 13, WOOD[1], 2, 6);
+    if (v === 0) { for (const [x, y] of [[8, 6], [17, 8], [12, 9]]) { px(g, x, y - 3, '#e8e0cc', 4, 4); px(g, x + 1, y - 2, '#d89a3a', 2, 2); px(g, x + 4, y - 2, '#c8c0aa', 1, 2); } }
+    else if (v === 1) { ell(g, 11, 7, 4, 2, '#d89a5a'); ell(g, 18, 9, 3, 2, '#c8803a'); px(g, 9, 6, '#f0c88a', 4, 1); }
+    else if (v === 2) { for (let i = 0; i < 5; i++) px(g, 7 + i * 3, 6 + (i % 2), i % 2 ? '#c8382c' : '#f4ead8', 3, 4); px(g, 20, 6, '#e8b84a', 2, 2); }
+    else { px(g, 6, 5, '#e8d8b0', 15, 7); ell(g, 12, 8, 3, 2, '#6aa05a'); px(g, 17, 7, '#c8382c', 1, 1); px(g, 18, 4, '#c8a03a', 6, 2); px(g, 23, 4, '#7ab8d8', 1, 2); }
+  }
+  D.mesa = { w: 28, h: 20, ax: 14, ay: 18, shadow: [12, 3, 1], layers: [L('b', mesa)], box: [-11, -8, 11, 1] };
+  function taburete(g) { ell(g, 5, 4, 4, 2.5, WOOD[3]); ell(g, 5, 3, 4, 2, WOOD[4]); px(g, 2, 5, WOOD[1], 1, 5); px(g, 7, 5, WOOD[1], 1, 5); }
+  D.taburete = { w: 10, h: 11, ax: 5, ay: 9, shadow: [4, 2, 1], layers: [L('b', taburete)], box: [-3, -2, 3, 1] };
+  // butaca (v0) y mecedora (v1)
+  function sillon(g, v) {
+    const c = v ? ['#5a3a22', '#7a5030'] : ['#7a2a2a', '#a83a3a'];
+    px(g, 2, 0, c[0], 14, 12); px(g, 3, 1, c[1], 12, 10);
+    px(g, 0, 8, c[0], 18, 8); px(g, 2, 9, c[1], 14, 5); px(g, 0, 8, c[0], 3, 9); px(g, 15, 8, c[0], 3, 9);
+    if (v) { px(g, -1, 16, WOOD[1], 20, 2); } else { px(g, 2, 16, WOOD[0], 2, 3); px(g, 14, 16, WOOD[0], 2, 3); }
+  }
+  D.sillon = { w: 18, h: 20, ax: 9, ay: 18, shadow: [8, 2, 1], layers: [L('b', sillon)], box: [-8, -6, 8, 1] };
+
+  // ---------- cama: v = color de la manta ----------
+  function cama(g, v) {
+    const B = [['#3a6a9a', '#5a8ac0'], ['#9a3a3a', '#c85a5a'], ['#3a7a4a', '#5aa06a'], ['#8a6a2a', '#c89a4a']][v % 4];
+    px(g, 0, 0, WOOD[1], 20, 6); px(g, 1, 1, WOOD[3], 18, 4);
+    px(g, 1, 6, WOOD[1], 18, 22); px(g, 2, 6, '#efe8d8', 16, 6); ell(g, 10, 9, 6, 2.5, '#ffffff');
+    px(g, 2, 12, B[0], 16, 14); px(g, 2, 12, B[1], 16, 2); for (let y = 15; y < 26; y += 4) px(g, 2, y, 'rgba(255,255,255,.12)', 16, 1);
+    px(g, 1, 26, WOOD[0], 18, 2);
+  }
+  D.cama = { w: 20, h: 30, ax: 10, ay: 28, shadow: [9, 2, 1], layers: [L('b', cama)], box: [-9, -24, 9, 1] };
+
+  // ---------- alfombra (se dibuja bajo los personajes: ancla arriba) ----------
+  function alfombra(g, v) {
+    const C = v ? ['#2a4a7a', '#3a6aaa', '#e8b84a'] : ['#7a2a2a', '#a83a3a', '#e8b84a'];
+    px(g, 0, 0, C[0], 40, 20); px(g, 2, 2, C[1], 36, 16); px(g, 4, 4, C[0], 32, 12); px(g, 6, 6, C[1], 28, 8);
+    for (let x = 8; x < 32; x += 6) px(g, x, 9, C[2], 2, 2);
+    for (let x = 1; x < 40; x += 3) { px(g, x, -1, '#d8c8a4', 1, 1); px(g, x, 20, '#d8c8a4', 1, 1); }
+  }
+  D.alfombra = { w: 40, h: 22, ax: 20, ay: 1, layers: [L('b', alfombra)] };
+  function felpudo(g) { px(g, 0, 0, '#6a5a3a', 26, 8); px(g, 1, 1, '#8a7a4a', 24, 6); for (let x = 3; x < 24; x += 3) px(g, x, 2, '#6a5a3a', 1, 4); }
+  D.felpudo = { w: 26, h: 8, ax: 13, ay: 1, layers: [L('b', felpudo)] };
+
+  // ---------- varios ----------
+  function planta(g) { px(g, 3, 10, '#a8582c', 8, 7); px(g, 3, 10, '#c86a3a', 8, 2); ell(g, 7, 6, 5, 4, '#3a7a3a'); ell(g, 5, 4, 3, 3, '#5aa05a'); ell(g, 9, 3, 2, 3, '#5aa05a'); }
+  D.planta = { w: 14, h: 18, ax: 7, ay: 16, shadow: [5, 2, 1], layers: [L('b', planta)], box: [-4, -3, 4, 1] };
+  function armario(g) {
+    px(g, 0, 0, WOOD[0], 22, 34); px(g, 1, 1, WOOD[2], 20, 32); px(g, 10, 2, WOOD[0], 2, 30);
+    px(g, 2, 2, WOOD[3], 7, 28); px(g, 13, 2, WOOD[3], 7, 28); px(g, 8, 16, '#e8b84a', 1, 2); px(g, 13, 16, '#e8b84a', 1, 2);
+  }
+  D.armario = { w: 22, h: 34, ax: 11, ay: 32, layers: [L('b', armario)], box: [-10, -6, 10, 1] };
+  function telar(g) {
+    px(g, 1, 0, WOOD[1], 3, 28); px(g, 24, 0, WOOD[1], 3, 28); px(g, 1, 2, WOOD[3], 26, 2); px(g, 1, 20, WOOD[3], 26, 2);
+    for (let x = 5; x < 24; x += 2) px(g, x, 4, '#e8d8b0', 1, 16);
+    for (let y = 12; y < 20; y += 2) px(g, 5, y, ['#c8382c', '#3a6aaa', '#e8b84a', '#3a7a4a'][(y / 2) % 4], 19, 2);
+    ell(g, 30, 24, 4, 3, '#8a5a36'); ell(g, 29, 21, 2, 2, '#c8382c'); ell(g, 32, 22, 2, 2, '#3a6aaa');
+  }
+  D.telar = { w: 36, h: 30, ax: 14, ay: 28, shadow: [12, 2, 1], layers: [L('b', telar)], box: [-12, -6, 12, 1] };
+  function escalera(g) {
+    for (let i = 0; i < 6; i++) { px(g, 0, i * 5, WOOD[1], 22, 5); px(g, 0, i * 5, WOOD[4], 22, 1); px(g, 0, i * 5 + 4, WOOD[0], 22, 1); }
+    px(g, -1, 0, WOOD[0], 2, 30); px(g, 21, 0, WOOD[0], 2, 30);
+  }
+  D.escalera = { w: 22, h: 30, ax: 11, ay: 16, layers: [L('b', escalera)] };
+  function cesta(g, v) { ell(g, 6, 6, 6, 4, '#8a5a36'); ell(g, 6, 5, 5, 3, '#a8743f'); for (let x = 2; x < 11; x += 2) px(g, x, 7, '#6a4428', 1, 2); if (v) { ell(g, 4, 3, 2, 2, '#c8382c'); ell(g, 8, 3, 2, 2, '#3a6aaa'); } else { ell(g, 5, 3, 3, 1.5, '#d89a5a'); ell(g, 8, 3, 2, 1.5, '#c8803a'); } }
+  D.cesta = { w: 12, h: 10, ax: 6, ay: 9, shadow: [5, 2, 1], layers: [L('b', cesta)], box: [-4, -2, 4, 1] };
+  function candil(g) { px(g, 2, 6, '#3a2a1a', 4, 2); px(g, 3, 3, '#efe3c8', 2, 3); px(g, 3, 1, '#ffd77a', 2, 2); px(g, 4, 0, '#fff2b0', 1, 1); }
+  D.candil = { w: 8, h: 8, ax: 4, ay: 7, layers: [L('b', candil)], emissive: [{ dx: -1, dy: -7, w: 2, h: 2 }], lights: [{ dx: 0, dy: -6, r: 36, c: [255, 200, 120], a: 0.8, always: 0.5, flicker: 1 }] };
+  // farol de techo: solo da luz (cuelga de las vigas)
+  function farolTecho(g) { px(g, 4, 0, '#2a1810', 1, 6); px(g, 1, 6, '#2b2236', 7, 7); px(g, 2, 7, '#ffd77a', 5, 5); px(g, 3, 8, '#fff2b0', 3, 2); }
+  D.farol_techo = { w: 9, h: 14, ax: 4, ay: 34, layers: [L('b', farolTecho)], emissive: [{ dx: -2, dy: -27, w: 5, h: 5 }], lights: [{ dx: 0, dy: -24, r: 70, c: [255, 190, 110], a: 0.9, always: 0.6, flicker: 1 }] };
+  // laúd apoyado (para el rincón del bardo)
+  function laud(g) { ell(g, 5, 13, 4, 5, '#a8743f'); ell(g, 5, 13, 1.5, 1.5, '#2a1810'); px(g, 4, 1, WOOD[1], 2, 9); px(g, 3, 0, WOOD[0], 4, 2); }
+  D.laud = { w: 10, h: 19, ax: 5, ay: 18, layers: [L('b', laud)] };
 })();
 
 </script>
@@ -4089,7 +4260,7 @@ void main(){
 (function () {
   'use strict';
   const TH = window.TH, R = TH.util.rnd, TS = 16, HZ = TH.HZ, PAD = TH.PAD;
-  const WALKABLE_GROUND = { g: 1, f: 1, p: 1, s: 1, r: 1, d: 1, S: 1 };
+  const WALKABLE_GROUND = { w: 1, g: 1, f: 1, p: 1, s: 1, r: 1, d: 1, S: 1 };
 
   // ruido de valor suave (para la variación de color del suelo)
   function vnoise(x, y, s) {
@@ -4288,6 +4459,7 @@ void main(){
           else if (t === 's') T.sand(g, c, r, x, topY);
           else if (t === 'r') T.cobble(g, c, r, x, topY);
           else if (t === 'd') T.dock(g, this, c, r, x, topY);
+          else if (t === 'w') T.floor(g, c, r, x, topY);
           if (t === 'd') continue;
           // sombras de contacto con terreno más alto
           const nH = this.inb(c, r - 1) && !this.isWater(c, r - 1) ? this.hh(c, r - 1) : -1;
@@ -5572,12 +5744,12 @@ void main(){
     renderWorld(ctx) {
       const m = this.map, cam = TH.camera, cx = cam.rx, cy = cam.ry, t = TH.time, L = TH.lighting, C = TH.chars;
       // fondo para lo que queda por encima del mapa (copas densas)
-      ctx.fillStyle = '#1f4a35';
+      const indoor = m.def.indoor;
+      ctx.fillStyle = indoor ? '#07050a' : '#1f4a35';
       ctx.fillRect(0, 0, W, H);
       ctx.save();
       ctx.translate(-cx, -cy);
-      ctx.drawImage(m.water, cx, cy + TH.PAD, W, H, cx, cy, W, H);
-      this.drawWater(ctx, cx, cy, t, L);
+      if (!indoor) { ctx.drawImage(m.water, cx, cy + TH.PAD, W, H, cx, cy, W, H); this.drawWater(ctx, cx, cy, t, L); }
 
       // lista visible ordenada por Y: objetos, grupo y NPCs
       const list = this.list;
@@ -6625,6 +6797,9 @@ void main(){
       lead: '24 - - - 22 - 24 - 27 - - - 26 - 24 - | 22 - - - 20 - 22 - 24 - - - . . . . | 24 - - - 22 - 24 - 27 - 29 - 31 - - - | 30 - 29 - 27 - 26 - 24 - - - . . . .', lw: 'sawtooth', lv: 0.055, drum: 'k-hsk-hsk-hsk-hsk-hsk-hskshsssss', pad: 0 },
     grupo: { bpm: 96, root: 50, prog: [[0, 'M'], [5, 'M'], [9, 'm'], [7, 'M']], bass: 'r . . 5 . . r . r . . 5 . . o .', arp: '0 1 2 3 2 1 0 1 0 1 2 3 2 1 0 1', aw: 'triangle', av: 0.05,
       lead: GRUPO, lw: 'triangle', lv: 0.14, drum: 'k-------s-------k---k---s-----h-', pad: 0.045 },
+    // taberna: una jiga alegre de puerto (Re mayor)
+    taberna: { bpm: 126, root: 50, prog: [[0, 'M'], [5, 'M'], [7, 'M'], [0, 'M']], bass: 'r . . 5 . . r . . 5 . . r . o .', arp: '0 . 2 . 1 . 2 . 0 . 2 . 1 . 2 .', aw: 'triangle', av: 0.045,
+      lead: '12 - 16 - 19 - 16 - 14 - 12 - 14 - 16 - | 17 - 19 - 21 - 19 - 17 - 16 - 14 - - - | 19 - 21 - 23 - 21 - 19 - 16 - 14 - 16 - | 17 - 16 - 14 - 16 - 12 - - - . . . .', lw: 'square', lv: 0.06, drum: 'k---h-s-k-k-h-s-k---h-s-k-h-s-s-', pad: 0.03 },
     triste: { bpm: 64, root: 45, prog: [[0, 'm'], [8, 'M'], [3, 'M'], [10, 'M']], bass: 'r . . . . . . . 5 . . . . . . .', arp: '0 1 2 1 0 1 2 1 0 1 2 1 0 1 2 1', aw: 'sine', av: 0.06,
       lead: '15 - - - 14 - 12 - 15 - - - 19 - - - | 20 - - - 19 - 15 - 12 - - - . . . . | 15 - - - 17 - 19 - 22 - - - 20 - 19 - | 17 - - - 15 - 14 - 12 - - - - - - -', lw: 'triangle', lv: 0.11, drum: '', pad: 0.05 },
     combate: { bpm: 150, root: 45, prog: [[0, 'm'], [3, 'M'], [7, 'm'], [5, 'm']], bass: 'r . r r 5 . 5 r r . r r 5 . o .', arp: '0 1 2 1 0 1 2 3 0 1 2 1 0 1 2 3', aw: 'square', av: 0.035,
@@ -22458,6 +22633,284 @@ void main(){
   sign('ruinas', 2.4, 18.4, 'Sendero del oeste: Biblioteca de las Dos Épocas.');
   sign('ciudad', 2.4, 20.4, 'Al oeste: Ruinas de Thalyria.');
   sign('biblioteca', 31.6, 16.4, 'Al este: Ruinas de Thalyria.');
+})();
+
+</script>
+  <script>/* data/interiores.js */
+// Interiores de Bruma Salada: se entra en las casas caminando hacia la puerta, como en Pokémon.
+// · Posada y taberna La Gaviota (planta baja con barra, chimenea, mesas, bardo y tablón; y habitaciones arriba).
+//   El posadero da cama: recupera PS y PM de todo el grupo y levanta a los caídos.
+// · Casa de la panadera, casa del viejo farero, casa de la tejedora, casa del capitán y la fragua de Flint.
+// · La mitad de los vecinos se va a sus casas; la otra mitad sigue en la calle.
+// · Los interiores tienen luz propia (chimenea, candiles y faroles), sin ciclo de día y noche.
+(function () {
+  'use strict';
+  const TH = window.TH, D = TH.data, M = D.maps, S = D.scripts, T = D.talk || (D.talk = {});
+  const B = M.brumaSalada;
+  if (!B) return;
+  const DIA = { any: ['!def.activa', 'def.fin'] };
+  const CERRADA = 'La puerta está atrancada. Dentro, alguien susurra: «¡No abras, que vienen del mar!»';
+
+  // ---------------- constructor de estancias ----------------
+  // walls: variante de cada tramo de pared (de izquierda a derecha); door: primera columna de la puerta (2 casillas)
+  function room(id, o) {
+    const w = o.w, h = o.h, door = o.door != null ? o.door : Math.floor(w / 2) - 1;
+    const props = [];
+    for (let k = 0; k * 2 < w; k++) props.push(['muro', 0.5 + k * 2, 1, { v: (o.walls || [])[k] || 0 }]);
+    for (let r = 2; r < h; r++) { props.push(['lado', -0.25, r]); props.push(['lado', w - 0.75, r]); }
+    props.push(['felpudo', door + 0.5, h - 1.9]);
+    const def = {
+      id, name: o.name, sub: o.sub || 'Bruma Salada', w, h, baseHeight: 1, baseTerrain: 'w',
+      heightRects: [], terrainRects: o.floor || [], tiles: [], props: props.concat(o.props || []),
+      npcs: o.npcs || [], foes: [], triggers: o.triggers || [], chests: o.chests || [], pickups: [], signs: o.signs || [],
+      indoor: true, music: o.music, start: { c: door + 1, r: h - 2.2 },
+      entries: Object.assign({ puerta: { c: door + 1, r: h - 2.2, dir: 'up' } }, o.entries || {}),
+      exits: [{ rect: [door, h - 1, 2, 1], to: o.to || 'brumaSalada', entry: o.toEntry }].concat(o.exits || []),
+    };
+    M[id] = def;
+    return def;
+  }
+
+  // ---------------- puertas en el pueblo ----------------
+  // casa (columna y fila del tejado en el mapa) → estancia. La puerta queda en la casilla de debajo.
+  const CASAS = [
+    { c: 11, r: 17, to: 'posada', name: 'Posada La Gaviota' },
+    { c: 12, r: 12, to: 'casa_panadera' },
+    { c: 26, r: 12, to: 'casa_viejo' },
+    { c: 16, r: 7, to: 'casa_tejedora' },
+    { c: 23, r: 7, to: 'casa_capitan' },
+    { c: 27, r: 17, to: 'fragua_flint' },
+  ];
+  B.doors = CASAS.map((k) => ({ c: k.c, r: k.r, to: k.to, entry: 'puerta', if: DIA, msg: CERRADA }));
+  for (const k of CASAS) B.entries['casa_' + k.to] = { c: k.c, r: k.r + 1.75, dir: 'down' };
+
+  // ---------------- vecinos: la mitad entra en casa ----------------
+  const dentro = (n) => (n.talk === 'posadero') || (n.talk === 'vecina2') || (n.id === 'oldman' && !n.variant) ||
+    (!n.talk && !n.variant && (n.id === 'woman' || n.id === 'sailor' || n.id === 'farmer'));
+  B.npcs = B.npcs.filter((n) => !dentro(n));
+  // Flint se aparta un paso para que se pueda entrar en la fragua
+  for (const n of B.npcs) if (n.id === 'flint') { n.c = 28.9; n.r = 18.6; }
+
+  // ======================================================================
+  // Posada y taberna La Gaviota
+  // ======================================================================
+  room('posada', {
+    name: 'Posada La Gaviota', sub: 'Taberna y camas · Bruma Salada', w: 22, h: 14, door: 10, music: 'taberna', toEntry: 'casa_posada',
+    walls: [3, 1, 0, 2, 1, 5, 0, 1, 4, 1, 0],
+    props: [
+      // barra con estanterías de botellas detrás
+      ['estante', 2.5, 2, { v: 0 }], ['estante', 4.5, 2, { v: 2 }], ['estante', 6.5, 2, { v: 0 }],
+      ['barrel', 0.6, 3], ['barrel', 8.4, 2.6],
+      ['barra', 1.5, 4, { v: 0 }], ['barra', 3.5, 4, { v: 1 }], ['barra', 5.5, 4, { v: 0 }], ['barra', 7.5, 4, { v: 1 }],
+      ['taburete', 2.5, 5.2], ['taburete', 4.5, 5.2], ['taburete', 7, 5.2],
+      // rincón de la chimenea, con butacas y el laúd del bardo
+      ['chimenea', 16.5, 2, { v: 0 }], ['alfombra', 16.5, 3.3, { v: 0 }],
+      ['sillon', 14.6, 4.4, { v: 0 }], ['sillon', 18.4, 4.4, { v: 0 }], ['laud', 12.6, 3.4],
+      // mesas
+      ['mesa', 6, 8, { v: 0 }], ['taburete', 4.4, 8.3], ['taburete', 7.6, 8.3], ['candil', 6.2, 8.05],
+      ['mesa', 12, 8, { v: 2 }], ['taburete', 10.4, 8.3], ['taburete', 13.6, 8.3], ['taburete', 12, 9.4],
+      ['mesa', 16.5, 10, { v: 1 }], ['taburete', 14.9, 10.3], ['taburete', 18.1, 10.3], ['candil', 16.7, 10.05],
+      ['mesa', 4, 11.3, { v: 0 }], ['taburete', 2.4, 11.6], ['taburete', 5.6, 11.6],
+      // escalera a las habitaciones, barriles y plantas
+      ['escalera', 20.4, 2.4], ['barrel', 20.6, 5.6], ['barrel', 21, 6.6], ['crate', 20.6, 11.6],
+      ['planta', 0.8, 12.4], ['planta', 13.4, 12.4], ['planta', 8.6, 12.4],
+      // faroles colgados de las vigas
+      ['farol_techo', 6, 8], ['farol_techo', 12, 8], ['farol_techo', 9.5, 4.6], ['farol_techo', 17, 8.5],
+    ],
+    npcs: [
+      { id: 'farmer', variant: 2, talk: 'posadero', c: 4.5, r: 3.55, ai: 'idle', dir: 'down' },
+      { id: 'farmer', c: 12.9, r: 8.25, ai: 'idle', dir: 'left' },
+      { id: 'sailor', variant: 5, talk: 'bardo', c: 13.4, r: 3.9, ai: 'idle', dir: 'down' },
+      { id: 'woman', variant: 7, talk: 'viajera', c: 15.1, r: 10.2, ai: 'idle', dir: 'right' },
+      { id: 'fisher', variant: 8, talk: 'parroquiano', c: 4.4, r: 11.4, ai: 'idle', dir: 'right' },
+    ],
+    signs: [
+      { c: 10.5, r: 2.3, script: 'taberna.tablon' },
+      { c: 20.5, r: 2.2, text: 'Escalera a las habitaciones.' },
+    ],
+    exits: [{ rect: [19, 2, 2, 1], to: 'posada_arriba', entry: 'puerta' }],
+    entries: { escalera: { c: 20, r: 3.7, dir: 'down' } },
+  });
+  room('posada_arriba', {
+    name: 'La Gaviota · habitaciones', sub: 'Posada La Gaviota', w: 16, h: 9, door: 7, music: 'taberna', to: 'posada', toEntry: 'puerta',
+    walls: [1, 0, 2, 1, 3, 0, 1, 4],
+    props: [
+      ['cama', 2, 3.6, { v: 0 }], ['cama', 5, 3.6, { v: 1 }], ['cama', 11, 3.6, { v: 2 }], ['cama', 14, 3.6, { v: 3 }],
+      ['armario', 8, 2.4], ['mesa', 8, 6, { v: 1 }], ['candil', 8.2, 6.05], ['alfombra', 8.5, 4.5, { v: 1 }],
+      ['cesta', 1.2, 7.4, { v: 1 }], ['planta', 14.8, 7.4], ['farol_techo', 8, 6],
+    ],
+    npcs: [{ id: 'woman', variant: 9, talk: 'huesped', c: 12.6, r: 5.2, ai: 'wander', radius: 1.5 }],
+    signs: [{ c: 2, r: 4.2, script: 'posada.cama' }, { c: 5, r: 4.2, script: 'posada.cama' }],
+  });
+  // la puerta de abajo de las habitaciones lleva a la escalera de la taberna
+  M.posada_arriba.exits[0].entry = 'escalera';
+
+  // ======================================================================
+  // Casas
+  // ======================================================================
+  room('casa_panadera', {
+    name: 'Casa de la panadera', w: 14, h: 10, door: 6, toEntry: 'casa_casa_panadera', walls: [1, 3, 0, 1, 3, 0, 1],
+    props: [
+      ['chimenea', 10.5, 2, { v: 1 }], ['cesta', 8.4, 3, { v: 0 }], ['cesta', 12.6, 3.4, { v: 0 }],
+      ['mesa', 6, 5.4, { v: 1 }], ['taburete', 4.4, 5.7], ['taburete', 7.6, 5.7],
+      ['cama', 1.6, 4, { v: 1 }], ['armario', 4, 2.4], ['alfombra', 6.5, 7, { v: 0 }], ['planta', 12.6, 8.4], ['farol_techo', 6, 5.4],
+    ],
+    npcs: [{ id: 'woman', c: 8.6, r: 4.4, ai: 'wander', radius: 1.5 }],
+  });
+  room('casa_viejo', {
+    name: 'Casa del viejo farero', w: 14, h: 10, door: 6, toEntry: 'casa_casa_viejo', walls: [2, 1, 0, 5, 1, 2, 0],
+    props: [
+      ['estante', 2.5, 2, { v: 1 }], ['estante', 4.5, 2, { v: 1 }], ['sillon', 9, 4.4, { v: 1 }],
+      ['mesa', 6.5, 6, { v: 3 }], ['candil', 6.7, 6.05], ['cama', 12.2, 4.2, { v: 0 }], ['alfombra', 8, 5.2, { v: 1 }],
+      ['planta', 1, 8.4], ['farol_techo', 7, 6],
+    ],
+    npcs: [{ id: 'oldman', c: 9, r: 4.9, ai: 'idle', dir: 'down' }],
+    chests: [{ id: 'casa_viejo', c: 12.4, r: 7.6, give: 'agua_luna' }],
+  });
+  room('casa_tejedora', {
+    name: 'Casa de la tejedora', w: 14, h: 10, door: 6, toEntry: 'casa_casa_tejedora', walls: [1, 0, 3, 1, 0, 1, 4],
+    props: [
+      ['telar', 4, 4.4], ['cesta', 7.4, 3, { v: 1 }], ['cesta', 2, 7.6, { v: 1 }], ['cama', 12.2, 4.2, { v: 2 }],
+      ['mesa', 9.5, 7, { v: 0 }], ['taburete', 7.9, 7.3], ['alfombra', 10, 5.2, { v: 0 }], ['planta', 12.6, 8.4], ['farol_techo', 7, 6],
+    ],
+    npcs: [{ id: 'woman', variant: 1, talk: 'vecina2', c: 6.2, r: 5.4, ai: 'idle', dir: 'left' }],
+  });
+  room('casa_capitan', {
+    name: 'Casa del capitán', w: 14, h: 10, door: 6, toEntry: 'casa_casa_capitan', walls: [5, 1, 4, 2, 1, 0, 4],
+    props: [
+      ['mesa', 7, 5, { v: 3 }], ['candil', 7.2, 5.05], ['estante', 2.5, 2, { v: 2 }], ['barrel', 12, 3], ['barrel', 12.6, 4.2],
+      ['crate', 1.4, 7.8], ['cama', 12.2, 7.2, { v: 3 }], ['taburete', 5.4, 5.3], ['farol_techo', 7, 5],
+    ],
+    npcs: [{ id: 'sailor', c: 8.6, r: 5.6, ai: 'idle', dir: 'left' }],
+    chests: [{ id: 'casa_capitan', c: 2.4, r: 4.4, give: 'tonico_plus' }],
+  });
+  room('fragua_flint', {
+    name: 'Fragua de Flint', w: 14, h: 10, door: 6, toEntry: 'casa_fragua_flint', walls: [0, 4, 0, 0, 4, 0, 0], music: 'hondaroca',
+    props: [
+      ['forge', 7, 3.2], ['anvil', 7, 6], ['barrel', 1.6, 3], ['barrel', 2.2, 4.1], ['crate', 12.4, 3], ['crate', 12.4, 4.2],
+      ['estante', 10.8, 2, { v: 2 }], ['planta', 1, 8.4],
+    ],
+    signs: [{ c: 7, r: 6.6, text: 'El yunque de Flint. {p:0.3}Tiene más abolladuras que historias… {p:0.3}y Flint tiene muchas historias.' }],
+    chests: [{ id: 'fragua_flint', c: 12.4, r: 7.4, give: 'tonico' }],
+  });
+
+  // ======================================================================
+  // Bruma Salada inundada (capítulo 6 en adelante): la posada y la fragua están bajo el agua,
+  // pero las cuatro casas de arriba siguen secas. El posadero se refugia en la casa del capitán.
+  // ======================================================================
+  const BI = M.brumaInundada, F = TH.flags;
+  if (BI) {
+    const SECAS = CASAS.filter((k) => k.r <= 12);
+    BI.doors = SECAS.map((k) => ({ c: k.c, r: k.r, to: k.to, entry: 'puerta' }));
+    BI.entries = Object.assign({}, BI.entries);
+    for (const k of SECAS) BI.entries['casa_' + k.to] = { c: k.c, r: k.r + 1.75, dir: 'down' };
+    // al salir de una casa se vuelve al pueblo tal como esté
+    for (const k of CASAS) {
+      const ex = M[k.to] && M[k.to].exits[0];
+      if (ex) Object.defineProperty(ex, 'to', { get: () => (F.get('mar.subido') ? 'brumaInundada' : 'brumaSalada'), configurable: true });
+    }
+    M.casa_capitan.npcs.push({ id: 'farmer', variant: 2, talk: 'posadero_refugio', c: 4.4, r: 6.4, ai: 'idle', dir: 'right', if: 'mar.subido' });
+    // el viejo farero está fuera, con los supervivientes
+    for (const n of M.casa_viejo.npcs) if (n.id === 'oldman') n.if = '!mar.subido';
+  }
+  T.posadero_refugio = [
+    { say: '@npc', e: 'sad', t: 'La Gaviota está bajo el agua, {p:0.3}con la barra y todo. {p:0.4}Pero el capitán me deja sus camas.' },
+    { who: '@npc', t: '¿Descansáis un rato?', choice: [
+      { t: 'Descansar (20 de oro)', then: [{ inn: 'bruma' }, { toast: 'PS y PM recuperados · los caídos se levantan' }] },
+      { t: 'Ahora no', then: [{ say: '@npc', e: 'neutral', t: 'Aquí estaré. {p:0.3}No tengo otro sitio.' }] },
+    ] },
+  ];
+
+  // ======================================================================
+  // Diálogos de la taberna
+  // ======================================================================
+  T.bardo = [
+    { if: '!cap1.fin', then: [
+      { say: '@npc', e: 'happy', name: 'Bardo', t: '♪ Cuatro faros tiene Vael, {p:0.3}cuatro velas contra el mar… {p:0.4}mientras ardan, el mañana {p:0.3}no se deja de llevar. ♪' },
+    ], else: [{ if: '!cap6.fin', then: [
+      { say: '@npc', e: 'happy', name: 'Bardo', t: '♪ Un chico con una lanza {p:0.3}le partió la concha al mar… {p:0.4}Ya tengo la primera estrofa. {p:0.3}La segunda la escribes tú. ♪' },
+    ], else: [
+      { say: '@npc', e: 'sad', name: 'Bardo', t: '♪ Subió el agua hasta la plaza {p:0.3}y nadie dejó de cantar… ♪ {p:0.5}Es lo único que no se lleva la marea, ¿sabes?' },
+    ] }] },
+  ];
+  T.viajera = [
+    { say: '@npc', e: 'neutral', name: 'Viajera', t: 'Llevo tres semanas de puerto en puerto. {p:0.3}En las tabernas se sabe todo antes que en ningún sitio.' },
+    { if: '!cap1.fin', then: [{ say: '@npc', name: 'Viajera', t: 'Dicen que el faro del cabo lleva días apagado. {p:0.3}Y que el vigía sigue allí arriba, solo.' }],
+      else: [{ if: '!cap3.fin', then: [{ say: '@npc', name: 'Viajera', t: 'Al oeste hay un bosque con las raíces en el agua salada. {p:0.3}Y al sur, ruinas que nadie se atreve a pisar.' }],
+        else: [{ if: '!cap6.fin', then: [{ say: '@npc', name: 'Viajera', t: 'En Hondaroca, al norte, los herreros recitan una profecía. {p:0.3}No me gustó cómo terminaba.' }],
+          else: [{ say: '@npc', name: 'Viajera', t: 'Cuando el mar sube, la gente se queda donde están sus muertos. {p:0.3}Por eso nadie se va de Bruma Salada.' }] }] }] },
+  ];
+  T.parroquiano = [
+    { say: '@npc', e: 'happy', t: '¡Otra ronda! {p:0.3}…¿Que no eres el tabernero? {p:0.4}Pues siéntate igual, que hay sitio.' },
+    { if: 'grupo.flint', then: [{ say: '@npc', e: 'happy', t: 'Tu amigo el herrero me debe tres jarras. {p:0.3}Díselo de mi parte. {p:0.3}No, mejor no se lo digas.' }] },
+  ];
+  T.huesped = [
+    { say: '@npc', t: 'Duermo en la cama del fondo. {p:0.3}Dicen que desde aquí se oye el mar cantar de noche. {p:0.4}Yo solo oigo al bardo.' },
+  ];
+  S['posada.cama'] = [
+    { say: 'none', t: 'Una cama de la posada, con las sábanas recién tendidas. {p:0.3}Para dormir aquí, habla con el posadero en la barra.' },
+  ];
+  S['taberna.tablon'] = [
+    { say: 'none', name: 'Tablón de la taberna', t: 'Un mapa del archipiélago clavado con chinchetas, y encima, notas a mano:' },
+    { say: 'none', name: 'Tablón de la taberna', t: '«Se buscan ayudantes: pregunta por el pueblo, hay vecinos con encargos.» {p:0.4}«Campeonato de Mareas: reta a los jugadores de cada isla.»' },
+    { say: 'none', name: 'Tablón de la taberna', t: '«La posada da cama, sopa y desayuno: {*el grupo sale como nuevo*}, {p:0.2}aunque alguno llegue a rastras.»' },
+  ];
+  // el posadero: ahora la cama levanta también a los caídos, y se dice claro
+  const P0 = T.posadero;
+  if (P0) T.posadero = [
+    { say: '@npc', e: 'happy', t: 'Bienvenido a {*La Gaviota*}. {p:0.3}Una noche, sopa y desayuno: 20 de oro. {p:0.3}Salís como nuevos, aunque alguno entre a rastras.' },
+    { who: '@npc', t: '¿Te quedas a dormir?', choice: [
+      { t: 'Dormir (20 de oro)', then: [{ inn: 'bruma' }, { toast: 'PS y PM recuperados · los caídos se levantan' }] },
+      { t: 'Ahora no', then: [{ say: '@npc', e: 'neutral', t: 'La cama no se va a ir a ningún sitio.' }] },
+    ] },
+  ];
+
+  // ======================================================================
+  // Motor: puertas, luz de interior y rótulos
+  // ======================================================================
+  const MS = TH.MapScene.prototype;
+  const upd = MS.update;
+  MS.update = function (dt) {
+    const r = upd.apply(this, arguments);
+    const doors = this.map && this.map.def.doors, L = this.leader;
+    if (!doors || this.trans || this.inCutscene || TH.scenes.top() !== this || !L) return r;
+    if (!TH.input.held.has('up') || L.dir !== 'up') return r;
+    for (const d of doors) {
+      const xc = d.c * 16 + 8, yFront = (d.r + 1) * 16;
+      if (Math.abs(L.x - xc) > 8 || L.y < yFront || L.y > yFront + 9) continue;
+      if (d.if && !TH.flags.test(d.if)) { if (!this._doorMsg || this._doorMsg < performance.now()) { TH.ui.toast(d.msg || 'Está cerrado.'); this._doorMsg = performance.now() + 2500; } return r; }
+      TH.sfx('ok');
+      this.changeZone(d.to, d.entry);
+      break;
+    }
+    return r;
+  };
+  // al salir de una casa no se repite el rótulo del pueblo
+  const cz = MS.changeZone;
+  MS.changeZone = function (id) {
+    this._quietBanner = !!(this.map && this.map.def.indoor) && !(M[id] && M[id].indoor);
+    return cz.apply(this, arguments);
+  };
+  const banner = TH.ui.banner;
+  TH.ui.banner = function () {
+    const m = TH.scenes.registry.map;
+    if (m && m._quietBanner) { m._quietBanner = false; return; }
+    return banner.apply(this, arguments);
+  };
+  // dentro no hay luciérnagas, hojas ni lluvia
+  const emit = MS.emit;
+  MS.emit = function () { if (this.map && this.map.def.indoor) return; return emit.apply(this, arguments); };
+  // luz de interior: cálida y fija, sin sol ni noche; brillan la chimenea, los candiles y los faroles
+  const LG = TH.lighting, setTime = LG.setTime;
+  LG.setTime = function () {
+    const m = TH.scenes.registry.map;
+    if (m && m.map && m.map.def.indoor && TH.scenes.stack.includes(m)) {
+      this.amb[0] = 168; this.amb[1] = 140; this.amb[2] = 118;
+      this.night = 0.6; this.day = 0; this.golden = 0;
+      return;
+    }
+    return setTime.apply(this, arguments);
+  };
 })();
 
 </script>
