@@ -9714,7 +9714,7 @@ void main(){
 (function () {
   'use strict';
   const TH = window.TH, U = TH.util, TS = 16, HZ = TH.HZ, W = TH.W, H = TH.H;
-  const OPS = ['despawn', 'pose', 'sfx', 'js', 'scene', 'say', 'narrate', 'choice', 'if', 'set', 'add', 'call', 'end', 'move', 'face', 'place', 'cam', 'zoom', 'fade', 'hour', 'shake', 'wait', 'emote',
+  const OPS = ['despawn', 'pose', 'sfx', 'js', 'credits', 'scene', 'say', 'narrate', 'choice', 'if', 'set', 'add', 'call', 'end', 'move', 'face', 'place', 'cam', 'zoom', 'fade', 'hour', 'shake', 'wait', 'emote',
     'bars', 'banner', 'toast', 'party', 'dream', 'orb', 'release',
     'give', 'shop', 'inn', 'sleep', 'world', 'heal', 'zone',
     'join', 'leave', 'roster', 'battle', 'refresh', 'warp', 'equip', 'save', 'flash', 'music', 'chapter', 'level', 'clock', 'cine'];
@@ -9993,7 +9993,7 @@ void main(){
           if (!inn) return null;
           if (TH.party.gold < inn.price) { this.pushList([{ say: '@npc', e: 'sad', t: 'Lo siento, cielo. {p:0.3}Son ' + inn.price + ' de oro y no te llega.' }]); return null; }
           TH.party.gold -= inn.price;
-          this.pushList([{ fade: 1, color: '#000', time: 0.8 }, { sleep: inn.wake }, { wait: 0.8 }, { fade: 0, time: 1 }, { say: '@npc', e: 'happy', t: '¡Buenos días! {p:0.3}Habéis dormido como piedras.' }, { toast: 'PV y PM recuperados' }]);
+          this.pushList([{ fade: 1, color: '#000', time: 0.8 }, { sleep: inn.wake }, { wait: 0.8 }, { fade: 0, time: 1 }, { say: '@npc', e: 'happy', t: '¡Buenos días! {p:0.3}Habéis dormido como piedras.' }, { toast: 'PV y PM recuperados · los caídos se levantan' }]);
           return null;
         }
         case 'sleep': {
@@ -12585,8 +12585,9 @@ void main(){
       { id: 'reloj_sur', type: 'stele', c: 9, r: 17 },
       { id: 'reloj_norte', type: 'stele', c: 32, r: 9 },
       { id: 'cristal', type: 'crystal', c: 19, r: 9, epoch: 'present' },
-      { id: 'pa', type: 'platform', c: 20, r: 11, up: 'cristal', epoch: 'present' }, { id: 'pb', type: 'platform', c: 20, r: 12, up: 'cristal', epoch: 'present' },
-      { id: 'pc', type: 'platform', c: 21, r: 11, up: 'cristal', epoch: 'present' }, { id: 'pd', type: 'platform', c: 21, r: 12, up: 'cristal', epoch: 'present' },
+      // las plataformas suben a la altura de las orillas (sin «lv» se quedaban al nivel del agua y no se podía cruzar)
+      { id: 'pa', type: 'platform', c: 20, r: 11, up: 'cristal', lv: 1, epoch: 'present' }, { id: 'pb', type: 'platform', c: 20, r: 12, up: 'cristal', lv: 1, epoch: 'present' },
+      { id: 'pc', type: 'platform', c: 21, r: 11, up: 'cristal', lv: 1, epoch: 'present' }, { id: 'pd', type: 'platform', c: 21, r: 12, up: 'cristal', lv: 1, epoch: 'present' },
       { id: 'arena', type: 'timedgate', c: 17, r: 7, w: 2, h: 1, dur: 1.2, epoch: 'past' },
       { id: 'pulso', type: 'lever', c: 14, r: 9, pulse: 'arena', epoch: 'past' },
       { id: 'derrumbe', type: 'gate', c: 17, r: 7, w: 2, h: 1, open: 'f:nunca', epoch: 'present' },
@@ -15698,8 +15699,8 @@ void main(){
     ],
     triggers: [
       { rect: [29, 11, 4, 4], once: 'hond.llegada', script: 'hond.llegada' },
-      { rect: [18, 11, 4, 3], once: 'hond.colgante', script: 'hond.colgante', cinematic: true },
-      { rect: [9, 10, 3, 5], once: 'hond.emboscada', if: 'hond.colgante', script: 'hond.emboscada', cinematic: true },
+      { rect: [18, 0, 4, 24], once: 'hond.colgante', script: 'hond.colgante', cinematic: true },
+      { rect: [9, 0, 3, 24], once: 'hond.emboscada', if: 'hond.colgante', script: 'hond.emboscada', cinematic: true },
       { rect: [3, 4, 9, 5], once: 'hond.corazon', script: 'hond.corazon', cinematic: true },
     ],
     chests: [
@@ -20076,7 +20077,7 @@ void main(){
       // el grupo en la cornisa, a contraluz violeta
       g.fillStyle = '#06040a'; g.beginPath(); g.moveTo(-40, H + 2); g.lineTo(-40, 182); g.lineTo(120, 186); g.lineTo(140, H + 2); g.fill(); g.beginPath(); g.moveTo(W + 40, H + 2); g.lineTo(W + 40, 180); g.lineTo(290, 186); g.lineTo(270, H + 2); g.fill();
       g.fillStyle = '#5a3a8a'; g.fillRect(-40, 182, 160, 1); g.fillRect(290, 180, 140, 1);
-      [['oslo', 22], ['kaelen', 64], ['firion', 100], ['elara', 326], ['flint', 364]].forEach(([id, x]) => P.heroFx(g, id, x, 214, 2, x < 192 ? 'right' : 'left', 'idle', 0, { sil: [14, 8, 24], silA: 0.75, rim: [180, 140, 255], rimA: 0.9, lx: x < 192 ? 1 : -1, shadow: false }));
+      [['oslo', 22], ['kaelen', 64], ['firion', 100], ['elara', 326], ['flint', 364]].filter((e) => TH.inParty(e)).forEach(([id, x]) => P.heroFx(g, id, x, 214, 2, x < 192 ? 'right' : 'left', 'idle', 0, { sil: [14, 8, 24], silA: 0.75, rim: [180, 140, 255], rimA: 0.9, lx: x < 192 ? 1 : -1, shadow: false }));
     } else if (t < 5.2) {
       // el ojo del Abisal se apaga en la oscuridad
       const k = t - 3.8, f = seg(k, 0, 1.4);
@@ -20102,7 +20103,7 @@ void main(){
       // agua negra quieta, con el reflejo dorado
       g.fillStyle = '#05030a'; g.fillRect(-40, 168, W + 80, 60); P.reflect(g, cx, 170, 210, [255, 214, 130], 0.55 * cry, t, 10);
       for (let x = -40; x < W + 40; x += 3) { g.fillStyle = css([255, 214, 130], 0.25 * cry * (0.5 + 0.5 * Math.sin(x * 0.3 + t * 4))); g.fillRect(x, 168, 2, 1); }
-      [['oslo', 120], ['kaelen', 160], ['elara', 200], ['firion', 240], ['flint', 280]].forEach(([id, x]) => P.heroFx(g, id, x, 236, 2, 'up', 'idle', 0, { sil: [20, 12, 10], silA: 0.75, rim: [255, 214, 140], rimA: 0.9 * cry + 0.1, lx: x < cx ? 1 : -1, shadow: false }));
+      [['oslo', 120], ['kaelen', 160], ['elara', 200], ['firion', 240], ['flint', 280]].filter((e) => TH.inParty(e)).forEach(([id, x]) => P.heroFx(g, id, x, 236, 2, 'up', 'idle', 0, { sil: [20, 12, 10], silA: 0.75, rim: [255, 214, 140], rimA: 0.9 * cry + 0.1, lx: x < cx ? 1 : -1, shadow: false }));
       P.grade(g, [255, 200, 140], 0.12 * cry, 'soft-light');
       P.flash(g, k < 0.4 ? 0.7 * (1 - k / 0.4) : 0, [255, 240, 200]);
     }
@@ -20178,7 +20179,7 @@ void main(){
       // el mar empieza a hincharse en el horizonte
       const b = seg(t, 1.6, 3.6); if (b > 0) { g.fillStyle = css([40, 50, 100], b); g.beginPath(); g.ellipse(250, 147, 30 * b, 4 * b, 0, Math.PI, 0); g.fill(); for (let i = 0; i < 10; i++) { g.fillStyle = css([255, 255, 255], 0.7 * b); g.fillRect((222 + rnd(i) * 56) | 0, (146 + Math.sin(t * 8 + i) * 1.5) | 0, 3, 1); } }
       g.fillStyle = '#100c1c'; g.beginPath(); g.moveTo(-40, H + 2); g.lineTo(-40, 178); g.quadraticCurveTo(90, 168, 190, 192); g.lineTo(210, H + 2); g.fill();
-      [['oslo', 20], ['kaelen', 60], ['elara', 100], ['firion', 140], ['flint', 178]].forEach(([id, x]) => P.heroFx(g, id, x, 216, 2, 'right', 'idle', 0, { sil: [20, 14, 34], silA: 0.75, rim: [255, 190, 150], rimA: 0.9, lx: 1, shadow: false }));
+      [['oslo', 20], ['kaelen', 60], ['elara', 100], ['firion', 140], ['flint', 178]].filter((e) => TH.inParty(e)).forEach(([id, x]) => P.heroFx(g, id, x, 216, 2, 'right', 'idle', 0, { sil: [20, 14, 34], silA: 0.75, rim: [255, 190, 150], rimA: 0.9, lx: 1, shadow: false }));
     } else if (t < 5) {
       CINE.torre.draw(g, 3.6); P.insert(g, t, 3.7, 5, 'kaelen', 'angry', [255, 170, 140], 'l');
     } else {
@@ -20280,7 +20281,7 @@ void main(){
       g.save(); g.globalCompositeOperation = 'lighter'; for (let y = 152; y < H; y += 2) { const w = (y - 150) * 1.1; g.fillStyle = css([255, 230, 170], 0.3 * (0.6 + 0.4 * Math.sin(y * 1.3 + t * 5))); g.fillRect(Math.round(260 - w / 2 + Math.sin(y + t * 3) * 3), y, Math.round(w), 1); } g.restore();
       for (let i = 0; i < 6; i++) { const bx = ((t * (16 + i * 3) + i * 70) % (W + 40)) - 20, by = 56 + i * 9 + Math.sin(t * 2 + i) * 4, fl = Math.sin(t * 9 + i) > 0 ? 1 : 0; g.fillStyle = '#6a4a5a'; g.fillRect(bx | 0, by | 0, 2, 1); g.fillRect((bx + 2) | 0, (by - fl) | 0, 2, 1); g.fillRect((bx - 2) | 0, (by - fl) | 0, 2, 1); }
       g.fillStyle = '#2a1a28'; g.beginPath(); g.moveTo(-40, H + 2); g.lineTo(-40, 176); g.quadraticCurveTo(100, 166, 200, 190); g.lineTo(220, H + 2); g.fill(); g.fillStyle = '#ffc890'; for (let x = -40; x < 196; x += 2) g.fillRect(x, Math.round(176 + Math.pow((x + 40) / 236, 2) * 14 - Math.sin(x * 0.02) * 2), 2, 1);
-      [['oslo', 20], ['flint', 58], ['firion', 96], ['elara', 134], ['kaelen', 172]].forEach(([id, x]) => P.heroFx(g, id, x, 216, 2, 'right', 'idle', 0, { sil: [40, 24, 30], silA: 0.6, rim: [255, 220, 160], rimA: 0.95, lx: 1, shadow: false }));
+      [['oslo', 20], ['flint', 58], ['firion', 96], ['elara', 134], ['kaelen', 172]].filter((e) => TH.inParty(e)).forEach(([id, x]) => P.heroFx(g, id, x, 216, 2, 'right', 'idle', 0, { sil: [40, 24, 30], silA: 0.6, rim: [255, 220, 160], rimA: 0.95, lx: 1, shadow: false }));
       P.grade(g, [255, 210, 170], 0.15, 'soft-light');
     } else {
       // de espaldas, mirando el sol; pétalos y luz
@@ -20292,7 +20293,7 @@ void main(){
       P.sea(g, 146, t, ['#e0b8a8', '#8a8ac0', '#3a4a80'], 'rgba(255,245,220,.5)');
       g.save(); g.globalCompositeOperation = 'lighter'; for (let y = 148; y < H; y += 2) { const ww = (y - 146) * 1.4; g.fillStyle = css([255, 236, 180], 0.32); g.fillRect(Math.round(192 - ww / 2 + Math.sin(y + t * 3) * 3), y, Math.round(ww), 1); } g.restore();
       shore(g, 184, '#2a1a20', '#ffd8a0');
-      [['oslo', 100], ['flint', 146], ['kaelen', 192], ['elara', 238], ['firion', 284]].forEach(([id, x]) => P.heroFx(g, id, x, 232, 2, 'up', 'idle', 0, { sil: [50, 30, 30], silA: 0.55, rim: [255, 226, 170], rimA: 1, lx: x < 192 ? 1 : x > 192 ? -1 : 0, shadow: false }));
+      [['oslo', 100], ['flint', 146], ['kaelen', 192], ['elara', 238], ['firion', 284]].filter((e) => TH.inParty(e)).forEach(([id, x]) => P.heroFx(g, id, x, 232, 2, 'up', 'idle', 0, { sil: [50, 30, 30], silA: 0.55, rim: [255, 226, 170], rimA: 1, lx: x < 192 ? 1 : x > 192 ? -1 : 0, shadow: false }));
       for (let i = 0; i < 26; i++) { const ph = (t * 0.2 + rnd(i)) % 1, x = ((rnd(i * 3) * W + t * 20) % (W + 20)) - 10, y = lerp(10, 200, ph) + Math.sin(t * 2 + i) * 6; g.fillStyle = i % 2 ? '#ffd0e0' : '#fff0c0'; g.fillRect(x | 0, y | 0, 2, 1); }
       P.insert(g, t, 9.2, 10.6, 'kaelen', 'happy', [255, 200, 140], 'r');
       P.flash(g, w, [255, 248, 232]);
@@ -20373,6 +20374,12 @@ void main(){
   const TH = window.TH, P = TH.CineScene.prototype, root = document.documentElement;
   const st = document.createElement('style'); st.textContent = '.cine-on .pad,.cine-on #btnSkip{visibility:hidden!important}'; document.head.appendChild(st);
   const e0 = P.enter, x0 = P.exit, u0 = P.update;
+  // en las cinemáticas, el grupo que se ve es el que viaja ahora (Oslo no sale antes de unirse, ni quien se ha ido)
+  TH.inParty = function (e) {
+    const m = TH.scenes.registry.map, id = Array.isArray(e) ? e[0] : e;
+    if (!m || !m.order) return true;
+    return id === 'kaelen' || m.order.slice(0, m.count).indexOf(id) >= 0;
+  };
   P.enter = function (d) { e0.call(this, d); root.classList.add('cine-on'); };
   P.exit = function () { root.classList.remove('cine-on'); if (x0) x0.call(this); };
   P.update = function (dt) { u0.call(this, dt); if (this.done) root.classList.remove('cine-on'); };
@@ -20964,6 +20971,8 @@ void main(){
       triggers: [
         { rect: rect([28, 11, 4, 3]), once: z.id + '.llegada', script: z.id + '.llegada' },
         { rect: rect([19, 10, 4, 4]), once: z.id + '.guardian', script: z.id + '.guardian', cinematic: true },
+        // el guardián se podía rodear por arriba o por abajo de la sala: el paso al oeste también lo despierta
+        { rect: rect([11, 11, 2, 2]), once: z.id + '.guardian', script: z.id + '.guardian', cinematic: true },
         { rect: rect([3, 7, 5, 6]), once: z.id + '.fin', script: z.id + '.fin', cinematic: true },
       ],
       chests: [
@@ -22574,7 +22583,7 @@ void main(){
   TH.resumeChapter = check;
   // repara el grupo de partidas guardadas con un orden equivocado (al cargar se perdía el orden y
   // entraban personajes que la historia dice que no están, como Elara raptada en el capítulo 2)
-  const away = (id) => F.get('grupo.' + id) === false || (id === 'flint' && F.get('cap1.fin') && !F.get('cap2.fin') && !F.get('cap2.flint'));
+  const away = (id) => F.get('grupo.' + id) === false || (id === 'flint' && (F.get('cap2.salida') || F.get('cap2.empezado')) && !F.get('cap2.fin') && !F.get('cap2.flint'));
   const fixRoster = () => {
     const m = TH.scenes.registry.map;
     if (!m || !m.members) return;
@@ -22702,6 +22711,11 @@ void main(){
   };
   const G = TH.game, cont = G.continueGame;
   G.continueGame = function () { const r = cont.apply(this, arguments); lastSave = now(); TH.storySane(); return r; };
+})();
+// al terminar el juego sí se guarda: la Nueva partida+ necesita una partida con el final visto
+(function () {
+  const E = window.TH.data.scripts['final.creditos'];
+  if (Array.isArray(E)) for (const o of E) if (o && o.save === true) o.save = 'manual';
 })();
 
 </script>
@@ -23163,7 +23177,7 @@ void main(){
   T.posadero_refugio = [
     { say: '@npc', e: 'sad', t: 'La Gaviota está bajo el agua, {p:0.3}con la barra y todo. {p:0.4}Pero el capitán me deja sus camas.' },
     { who: '@npc', t: '¿Descansáis un rato?', choice: [
-      { t: 'Descansar (20 de oro)', then: [{ inn: 'bruma' }, { toast: 'PS y PM recuperados · los caídos se levantan' }] },
+      { t: 'Descansar (20 de oro)', then: [{ inn: 'bruma' }] },
       { t: 'Ahora no', then: [{ say: '@npc', e: 'neutral', t: 'Aquí estaré. {p:0.3}No tengo otro sitio.' }] },
     ] },
   ];
@@ -23207,7 +23221,7 @@ void main(){
   if (P0) T.posadero = [
     { say: '@npc', e: 'happy', t: 'Bienvenido a {*La Gaviota*}. {p:0.3}Una noche, sopa y desayuno: 20 de oro. {p:0.3}Salís como nuevos, aunque alguno entre a rastras.' },
     { who: '@npc', t: '¿Te quedas a dormir?', choice: [
-      { t: 'Dormir (20 de oro)', then: [{ inn: 'bruma' }, { toast: 'PS y PM recuperados · los caídos se levantan' }] },
+      { t: 'Dormir (20 de oro)', then: [{ inn: 'bruma' }] },
       { t: 'Ahora no', then: [{ say: '@npc', e: 'neutral', t: 'La cama no se va a ir a ningún sitio.' }] },
     ] },
   ];
@@ -23289,7 +23303,7 @@ void main(){
   const posadero = (inn, saludo, despedida) => [
     { say: '@npc', e: 'happy', t: saludo },
     { who: '@npc', t: '¿Os quedáis a dormir?', choice: [
-      { t: 'Dormir (' + D.inns[inn].price + ' de oro)', then: [{ inn }, { toast: 'PS y PM recuperados · los caídos se levantan' }] },
+      { t: 'Dormir (' + D.inns[inn].price + ' de oro)', then: [{ inn }] },
       { t: 'Ahora no', then: [{ say: '@npc', e: 'neutral', t: despedida }] },
     ] },
   ];
@@ -23649,6 +23663,11 @@ void main(){
       e.msg = 'El camino a Bruma está bajo el agua. {p:0.3}Habrá que llegar en barca.';
     }
   }
+})();
+// el muelle de Bruma inundada dejaba al grupo encajado en el borde del pantalán
+(function () {
+  const M = window.TH.data.maps;
+  if (M.brumaInundada && M.brumaInundada.entries && M.brumaInundada.entries.muelle) Object.assign(M.brumaInundada.entries.muelle, { c: 18.75, r: 23.35 });
 })();
 
 </script>
