@@ -12295,6 +12295,8 @@ void main(){
     terrainRects: [
       [0, 20, 36, 6, '~'], [17, 21, 2, 4, 'd'], [17, 20, 2, 1, 'S'], [17, 14, 2, 6, 'p'], [17, 13, 2, 1, 'p'], [17, 14, 2, 1, 'S'],
       [17, 8, 2, 1, 'S'], [0, 0, 6, 14, 'g'], [30, 0, 6, 14, 'g'], [20, 10, 8, 2, 'p'],
+      // escalones delante de la posada: la terraza de arriba ya no obliga a dar la vuelta hasta la plaza
+      [6, 11, 2, 3, 'p'], [6, 14, 2, 1, 'S'],
     ],
     tiles: [[3, 16, 'f'], [33, 18, 'f'], [2, 9, 'f'], [32, 3, 'f']],
     props,
@@ -12387,9 +12389,10 @@ void main(){
   M.faroleros = {
     id: 'faroleros', name: 'Aldea de los Faroleros', sub: 'A la sombra de la Torre del Motor',
     w: 34, h: 24, baseHeight: 1, baseTerrain: 'g', clouds: 0.8,
-    heightRects: [[0, 19, 34, 5, 0], [0, 0, 34, 10, 2]],
+    // la playa está a la altura del pueblo: al salir de las casas de abajo se baja a la arena sin escalón
+    heightRects: [[0, 21, 34, 3, 0], [0, 0, 34, 10, 2]],
     terrainRects: [
-      [0, 21, 34, 3, '~'], [0, 19, 34, 2, 's'], [16, 21, 2, 3, 'd'], [16, 19, 2, 1, 'S'], [16, 11, 2, 8, 'p'], [16, 10, 2, 1, 'S'],
+      [0, 21, 34, 3, '~'], [0, 19, 34, 2, 's'], [16, 21, 2, 3, 'd'], [16, 21, 2, 1, 'S'], [16, 11, 2, 8, 'p'], [16, 10, 2, 1, 'S'],
       [16, 1, 2, 9, 'p'], [6, 14, 22, 2, 'p'], [12, 3, 10, 4, 'r'],
     ],
     tiles: [[4, 12, 'f'], [29, 12, 'f'], [8, 17, 'f'], [27, 17, 'f']],
@@ -15387,7 +15390,7 @@ void main(){
       ai: [{ act: 'grito', every: 2 }, { act: 'ala' }] },
     // superjefe: pensado para Nv 40+, con sus aletas cubriéndole
     leviatan: { name: 'Leviatán Primordial', title: 'El que estaba antes del mar', sprite: 'leviatan', scale: 3.2, boss: true, big: true, markH: 70,
-      hp: 13000, atk: 104, def: 48, mag: 100, res: 44, spd: 11, exp: 40000, gold: 20000,
+      hp: 10400, atk: 104, def: 48, mag: 100, res: 44, spd: 11, exp: 40000, gold: 20000,
       weak: { Luz: 1.3, Impacto: 1.2 }, resist: { Agua: 0.3, Luna: 0.8 },
       actions: {
         fauces: { name: 'Fauces del principio', kind: 'phys', power: 1.35, target: 'one', pick: 'weakest' },
@@ -15411,11 +15414,11 @@ void main(){
           { name: 'Flint', t: '¡Ánimo! {p:0.3}¡Es solo un pez muy grande con muy mal carácter! {p:0.4}…Muy, muy grande.' },
         ], ai: [{ act: 'mudar', if: 'self<0.12', cooldown: 8 }, { act: 'crecida', every: 3 }, { act: 'cola', every: 2 }, { act: 'fauces' }] },
       ] },
-    aleta_izq: { name: 'Aleta del origen', sprite: 'aleta', part: true, markH: 34, hp: 1800, atk: 100, def: 46, mag: 30, res: 40, spd: 10, exp: 800, gold: 0,
+    aleta_izq: { name: 'Aleta del origen', sprite: 'aleta', part: true, markH: 34, hp: 1440, atk: 100, def: 46, mag: 30, res: 40, spd: 10, exp: 800, gold: 0,
       weak: { Corte: 1.3 }, resist: { Agua: 0.4 },
       actions: { golpe: { name: 'Aletazo', kind: 'phys', power: 1.0, target: 'one', pick: 'weakest' }, proteger: { name: 'Cubrir', kind: 'protect', target: 'boss' } },
       ai: [{ act: 'proteger', every: 3 }, { act: 'golpe' }] },
-    aleta_der: { name: 'Aleta de la crecida', sprite: 'aleta', part: true, markH: 34, hp: 1800, atk: 100, def: 46, mag: 30, res: 40, spd: 11, exp: 800, gold: 0,
+    aleta_der: { name: 'Aleta de la crecida', sprite: 'aleta', part: true, markH: 34, hp: 1440, atk: 100, def: 46, mag: 30, res: 40, spd: 11, exp: 800, gold: 0,
       weak: { Corte: 1.3 }, resist: { Agua: 0.4 },
       actions: { golpe: { name: 'Aletazo', kind: 'phys', power: 1.0, target: 'one' }, proteger: { name: 'Cubrir', kind: 'protect', target: 'boss' } },
       ai: [{ act: 'proteger', every: 3 }, { act: 'golpe' }] },
@@ -18242,7 +18245,7 @@ void main(){
   for (const R of REV) {
     const B = D.enemies[R.g[0]];
     if (!B) continue;
-    const k = { hp: (R.g.length > 1 ? 12000 : 17000) / B.hp, atk: (LV.atk * 0.98) / B.atk, def: (LV.def * 0.9) / Math.max(1, B.def), mag: (LV.mag * 0.96) / Math.max(1, B.mag), res: (LV.res * 0.9) / Math.max(1, B.res) };
+    const k = { hp: (R.g.length > 1 ? 9600 : 13600) / B.hp, atk: (LV.atk * 0.98) / B.atk, def: (LV.def * 0.9) / Math.max(1, B.def), mag: (LV.mag * 0.96) / Math.max(1, B.mag), res: (LV.res * 0.9) / Math.max(1, B.res) };
     R.rg = R.g.map((key) => {
       const S = D.enemies[key];
       if (!S) return key;
@@ -23171,9 +23174,21 @@ void main(){
       if (ex) Object.defineProperty(ex, 'to', { get: () => (F.get('mar.subido') ? 'brumaInundada' : 'brumaSalada'), configurable: true });
     }
     M.casa_capitan.npcs.push({ id: 'farmer', variant: 2, talk: 'posadero_refugio', c: 4.4, r: 6.4, ai: 'idle', dir: 'right', if: 'mar.subido' });
+    // el bardo y la viajera también se refugian aquí, y lo que se salvó de la fragua de Flint está en la caja
+    M.casa_capitan.npcs.push(
+      { id: 'sailor', variant: 5, talk: 'bardo', c: 9.8, r: 3.2, ai: 'idle', dir: 'down', if: 'mar.subido' },
+      { id: 'woman', variant: 7, talk: 'viajera', c: 4.2, r: 8.2, ai: 'idle', dir: 'up', if: 'mar.subido' });
+    (M.casa_capitan.signs = M.casa_capitan.signs || []).push({ c: 1.4, r: 7.9, script: 'capitan.caja' });
     // el viejo farero está fuera, con los supervivientes
     for (const n of M.casa_viejo.npcs) if (n.id === 'oldman') n.if = '!mar.subido';
   }
+  TH.data.scripts['capitan.caja'] = [
+    { if: '!mar.subido', then: [{ say: 'none', t: 'Una caja de cabos y aparejos. {p:0.3}Huele a brea.' }],
+      else: [{ if: '!cofre.fragua_flint', then: [
+        { say: 'none', t: 'Encima de los cabos, envuelto en un trapo: {p:0.3}lo que el posadero pudo sacar de la fragua de Flint antes de que entrara el agua.' },
+        { set: { 'cofre.fragua_flint': true } }, { give: 'tonico', n: 1 },
+      ], else: [{ say: 'none', t: 'Cabos, aparejos y un trapo vacío que huele a forja.' }] }] },
+  ];
   T.posadero_refugio = [
     { say: '@npc', e: 'sad', t: 'La Gaviota está bajo el agua, {p:0.3}con la barra y todo. {p:0.4}Pero el capitán me deja sus camas.' },
     { who: '@npc', t: '¿Descansáis un rato?', choice: [
@@ -23612,6 +23627,7 @@ void main(){
   };
   const done = (t) => F.get(t.id) || (DONE[t.id] ? DONE[t.id]() : false);
   TH.arrivals = TRIG;
+  TH.arrivalDone = done;
 
   // la reanudación antigua (que lanzaba el inicio al cargar) ya no hace falta: lo hace la llegada
   TH.pendingChapter = () => null;
@@ -23709,6 +23725,410 @@ void main(){
         { pose: 'kaelen', art: null },
         { js: () => { const m = TH.scenes.registry.map; if (SOLO) { m.count = SOLO; SOLO = 0; m.regroup(); } } });
     }
+  }
+})();
+
+</script>
+  <script>/* data/ayudas.js */
+// Ayudas al jugador:
+// 1. Aviso para guardar después de cada jefe y al terminar cada capítulo (el juego solo guarda a mano).
+// 2. Flecha guía en todo el juego: si el siguiente paso está en otro mapa, apunta a la salida, puerta o barca
+//    que lleva hacia allí; en el mapa del mar marca el puerto de destino; y si hace falta cambiar de época, lo dice.
+(function () {
+  'use strict';
+  const TH = window.TH, F = TH.flags, D = TH.data, M = D.maps, MS = TH.MapScene.prototype;
+
+  // ---------------- 1. aviso para guardar ----------------
+  let pending = null, calmT = 0, loading = false;
+  const important = (k) => /^jefe\./.test(k) || /^cap\d\.fin$/.test(k);
+  const set = F.set;
+  F.set = function (k, v) {
+    const before = this.v[k];
+    const r = set.apply(this, arguments);
+    const m = TH.scenes && TH.scenes.registry && TH.scenes.registry.map;
+    if (important(k) && !before && this.v[k] && TH.game && TH.game.started && m && !loading) pending = k;
+    return r;
+  };
+  // empezar, cargar o saltar de capítulo no cuenta como «acabas de vencer»
+  for (const fn of ['newGame', 'startChapter', 'continueGame', 'loadGame', 'load']) {
+    const g = TH.game && TH.game[fn];
+    if (typeof g === 'function') TH.game[fn] = function () { loading = true; try { return g.apply(this, arguments); } finally { loading = false; pending = null; } };
+  }
+  const autoOn = () => { try { return localStorage.getItem('thalyria.autosave') === '1'; } catch (e) { return false; } };
+  const ASK = [
+    { choice: [
+      { t: 'Guardar partida', then: [{ js: () => { const ok = TH.manualSave ? TH.manualSave() : TH.scenes.registry.map.saveGame(); TH.ui.toast(ok ? 'Partida guardada en la ranura ' + (TH.save.slot + 1) : 'No se pudo guardar en este navegador'); } }] },
+      { t: 'Ahora no' },
+    ], who: 'none', t: 'Buen momento para descansar. {p:0.2}¿Quieres guardar la partida?' },
+  ];
+  TH.askSave = (why) => { pending = why || 'manual'; };
+
+  // ---------------- 2. flecha guía en todo el juego ----------------
+  const test = (c) => { try { return !c || F.test(c); } catch (e) { return false; } };
+  const exitTo = (e) => { try { return e.to; } catch (x) { return null; } };
+  const W = D.world;
+  const portOpen = (p) => {
+    if (!p.zone) return false;
+    if (p.unlock && !F.get(p.unlock)) return false;
+    const I = W && W.islands.find((i) => i.id === p.island);
+    return !(I && I.unlock && !F.get(I.unlock));
+  };
+  const reachable = (map) => (W ? W.ports.some((p) => p.zone === map && portOpen(p)) : false);
+
+  // adónde hay que ir ahora: primero una llegada pendiente; si no, el mapa del objetivo actual
+  const arrivalDone = (t) => {
+    if (F.get(t.id)) return true;
+    // la propia llegada sabe si la partida ya está más adelante: si su mapa la lanzaría, está pendiente
+    return false;
+  };
+  const GOALS = [
+    { if: 'objetivo=claro', map: 'brumaSalada' }, { if: 'objetivo=faro', map: 'brumaSalada' },
+    { if: 'objetivo=defensa', map: 'brumaSalada' }, { if: 'objetivo=puerto', map: 'brumaSalada' },
+    { if: 'objetivo=gruta', map: 'gruta' },
+    { if: 'objetivo=cabo', map: 'cabo' }, { if: 'objetivo=reja', map: 'cabo' }, { if: 'objetivo=ojo', map: 'cabo' },
+    { if: 'objetivo=arrecife', map: 'arrecife' },
+    { if: ['objetivo=madre', '!hondonada.corazon'], map: 'hondonada' },
+    { if: 'objetivo=madre', map: 'bosque' },
+    { if: 'objetivo=ruinas', map: 'ruinas' },
+    { if: 'objetivo=cap4', map: 'ciudad' }, { if: 'objetivo=cronista', map: 'ciudad' },
+    { if: 'objetivo=cap5', map: 'biblioteca' },
+    { if: ['objetivo=biblioteca', 'cap5.archivo_pista', '!archivo.fin', '!jefe.abisal'], map: 'archivo' },
+    { if: 'objetivo=biblioteca', map: 'biblioteca' },
+    { if: 'objetivo=cap6', map: 'brumaInundada' },
+    { if: ['objetivo=muelle', '!inundada.muelle'], map: 'brumaInundada' },
+    { if: 'objetivo=muelle', map: 'hondaroca' },
+    { if: 'objetivo=cap7', map: 'hondaroca' },
+    { if: 'objetivo=faroleros', map: 'faroleros' },
+    { if: 'objetivo=torre', map: 'torre' },
+    { if: 'objetivo=cap8', map: 'torre' },
+    { if: 'objetivo=motor', map: 'congelada' },
+  ];
+  // la llegada pendiente la calcula el propio sistema de llegadas: es la que saltaría al pisar su mapa
+  const pendingArrival = () => {
+    for (const t of TH.arrivals || []) {
+      if (!F.get(t.need) || arrivalDone(t)) continue;
+      // las llegadas con «hecho» implícito (partidas antiguas) no tienen bandera: se comprueba con el objetivo
+      if (TH.arrivalDone && TH.arrivalDone(t)) continue;
+      return t;
+    }
+    return null;
+  };
+  const goalMap = () => {
+    if (F.get('juego.fin')) return null;
+    const a = pendingArrival();
+    if (a && M[a.map]) return a.map;
+    for (const g of GOALS) if (test(g.if) && M[g.map]) return g.map;
+    return null;
+  };
+
+  // grafo de mapas: salidas, puertas y barcas (→ mar → puertos abiertos)
+  const edges = (id) => {
+    const d = M[id], out = [];
+    if (!d) return out;
+    for (const e of d.exits || []) {
+      const to = exitTo(e);
+      if (!to || !M[to] || !test(e.if)) continue;
+      const [x, y, w, h] = e.rect;
+      out.push({ to, c: x + w / 2 - 0.5, r: y + h / 2, kind: 'exit' });
+    }
+    for (const dr of d.doors || []) { let to; try { to = dr.to; } catch (x) { continue; } if (to && M[to] && test(dr.if)) out.push({ to, c: dr.c, r: dr.r + 0.6, kind: 'door' }); }
+    for (const bt of d.boats || []) if (test(bt.if)) out.push({ to: '@mar', c: bt.c, r: bt.r, kind: 'boat' });
+    return out;
+  };
+  const seaEdges = () => (W ? W.ports.filter(portOpen).map((p) => ({ to: p.zone, port: p })) : []);
+  // primer paso del camino más corto (en saltos) de «from» a «dest»
+  const firstHop = (from, dest) => {
+    if (from === dest) return null;
+    const seen = new Map([[from, null]]), q = [from];
+    while (q.length) {
+      const id = q.shift();
+      const nx = id === '@mar' ? seaEdges() : edges(id);
+      for (const e of nx) {
+        if (seen.has(e.to)) continue;
+        seen.set(e.to, { prev: id, e });
+        if (e.to === dest) {
+          let cur = dest, step = seen.get(cur);
+          while (step.prev !== from) { cur = step.prev; step = seen.get(cur); }
+          return step.e;
+        }
+        q.push(e.to);
+      }
+    }
+    return null;
+  };
+
+  // dentro del mapa del objetivo: el siguiente disparador de historia pendiente, el sello de poder o el jefe
+  const center = (t) => { const [x, y, w, h] = t.rect; return { c: x + w / 2 - 0.5, r: y + h / 2 }; };
+  const defsOf = (scene) => {
+    const d = M[scene.mapId], ep = scene.puzzle && scene.puzzle.epoch, E = d && d.epochs && ep && d.epochs[ep];
+    return [d].concat(E ? [E] : []).filter(Boolean);
+  };
+  const trigOk = (scene, t) => {
+    if (t.once && F.get(t.once)) return false;
+    if (!t.once && !t.if) return false;
+    if (!test(t.if)) return false;
+    if (t.pz && !(scene.puzzle && scene.puzzle.sig(t.pz))) return false;
+    return true;
+  };
+  const sealPista = (scene) => {
+    const pz = scene.puzzle;
+    if (!pz || F.get('fd.' + scene.mapId) || F.get('fd.skip')) return null;
+    const seal = pz.objs.find((o) => o.fdflag && pz.inEpoch(o));
+    if (!seal || F.get(seal.fdflag)) return null;
+    const pista = pz.objs.find((o) => o.id === 'fdpista' && pz.inEpoch(o));
+    return pista ? { c: pista.c, r: pista.r + 0.6 } : null;
+  };
+  const onMap = (scene) => {
+    const defs = defsOf(scene);
+    for (const d of defs) for (const t of d.triggers || []) if (trigOk(scene, t)) return center(t);
+    // un disparador que espera a un puzle: se señala la pieza que lo activa
+    const pz = scene.puzzle;
+    if (pz) for (const d of defs) for (const t of d.triggers || []) {
+      if (!t.pz || pz.sig(t.pz) || (t.once && F.get(t.once)) || !test(t.if)) continue;
+      const o = pz.objs.find((x) => (x.id === t.pz || x.sig === t.pz || x.out === t.pz) && pz.inEpoch(x));
+      if (o) return { c: o.c, r: o.r + 0.6 };
+    }
+    const s = sealPista(scene);
+    if (s) return s;
+    for (const d of defs) for (const f of d.foes || []) if (f.once && !F.get(f.once) && test(f.if) && f.c != null) return { c: f.c, r: f.r + 1.5 };
+    return null;
+  };
+  // ¿lo siguiente solo se ve en la otra época?
+  const otherEpoch = (scene) => {
+    const d = M[scene.mapId];
+    if (!d || !d.epochs || !scene.puzzle) return false;
+    if (d.epochFlag && !F.get(d.epochFlag)) return false;
+    const key = 'epoca.' + scene.mapId, cur = F.v[key];
+    const other = Object.keys(d.epochs).find((k) => k !== cur) || (cur === 'past' ? 'present' : 'past');
+    F.v[key] = other;
+    let ok = false;
+    try {
+      const E = d.epochs[other];
+      for (const dd of [d].concat(E ? [E] : [])) for (const t of dd.triggers || []) {
+        if (t.once && F.get(t.once)) continue;
+        if (!t.once && !t.if) continue;
+        if (test(t.if)) { ok = true; break; }
+      }
+    } finally { F.v[key] = cur; }
+    return ok;
+  };
+
+  let cache = { k: '', t: 0, g: null, hint: false };
+  const autoTarget = (scene) => {
+    const now = performance.now();
+    const k = scene.mapId + '|' + (scene.puzzle && scene.puzzle.epoch);
+    if (cache.k === k && now - cache.t < 400) return cache;
+    let g = null, hint = false;
+    const dest = goalMap();
+    if (dest && dest === scene.mapId) {
+      g = onMap(scene);
+      if (!g && !(TH.arrivals || []).some((t) => t.map === dest && F.get(t.need) && !F.get(t.id))) hint = otherEpoch(scene);
+    } else if (dest) {
+      const hop = firstHop(scene.mapId, dest);
+      if (hop) g = { c: hop.c, r: hop.r, kind: hop.kind };
+    }
+    cache = { k, t: now, g, hint };
+    return cache;
+  };
+  TH.guideAuto = { goalMap, firstHop, autoTarget, onMap, defsOf, reset: () => { cache.k = ""; } };
+
+  if (TH.guide) {
+    const base = TH.guide.target.bind(TH.guide);
+    TH.guide.target = function (scene) {
+      const g = base(scene);
+      if (g) return g;
+      return autoTarget(scene).g;
+    };
+    const draw = TH.guide.draw.bind(TH.guide);
+    TH.guide.draw = function (ctx, scene) {
+      draw.apply(null, arguments);
+      if (scene.inCutscene || TH.scenes.top() !== scene || TH.settings.guide === false) return;
+      if (base(scene) || !autoTarget(scene).hint) return;
+      const t = TH.time || 0, txt = '⟲ Prueba en la otra época (V)';
+      ctx.save();
+      ctx.font = '8px monospace';
+      const w = ctx.measureText(txt).width + 10, x = (TH.W - w) / 2, y = 22;
+      ctx.globalAlpha = 0.75 + 0.25 * Math.sin(t * 4);
+      ctx.fillStyle = 'rgba(20,12,30,.85)'; ctx.fillRect(x, y, w, 13);
+      ctx.fillStyle = '#ffd25a'; ctx.fillText(txt, x + 5, y + 9);
+      ctx.restore();
+    };
+  }
+
+  // en el mar: el puerto de destino viene elegido y marcado con la flecha
+  const WS = TH.scenes && TH.scenes.registry && TH.scenes.registry.world && TH.scenes.registry.world.constructor
+    ? TH.scenes.registry.world.constructor.prototype : (TH.WorldScene && TH.WorldScene.prototype);
+  const patchWorld = (P) => {
+    if (!P || P.__guia) return;
+    P.__guia = true;
+    const goalPort = (self) => {
+      const dest = goalMap();
+      if (!dest || !self.ports) return null;
+      const hop = firstHop('@mar', dest);
+      return hop && hop.port && self.ports.includes(hop.port) ? hop.port : null;
+    };
+    const enter = P.enter;
+    P.enter = function () {
+      const r = enter.apply(this, arguments);
+      try {
+        const gp = goalPort(this);
+        if (!this.auto && gp && gp !== this.from && TH.settings.guide !== false) { this.sel = this.ports.indexOf(gp); this.mark && this.mark(); }
+      } catch (e) { /* sin guía */ }
+      return r;
+    };
+    const mark = P.mark;
+    P.mark = function () {
+      const r = mark.apply(this, arguments);
+      try {
+        const gp = goalPort(this);
+        if (gp && this.ports[this.sel] === gp && this.el && this.el.dest && TH.settings.guide !== false) this.el.dest.textContent += ' · objetivo';
+      } catch (e) { /* sin guía */ }
+      return r;
+    };
+    const rin = P.renderIn;
+    if (rin) P.renderIn = function (ctx) {
+      const r = rin.apply(this, arguments);
+      try {
+        const gp = goalPort(this);
+        if (gp && TH.guide && TH.settings.guide !== false && !this.travel) {
+          const b = Math.sin((TH.time || 0) * 5) * 2;
+          TH.guide.arrow(ctx, gp.x, gp.y - 12 + b, Math.PI / 2);
+        }
+      } catch (e) { /* sin guía */ }
+      return r;
+    };
+  };
+  patchWorld(WS);
+  // por si la escena del mar se registra con otro nombre: se parchea la primera vez que aparece
+  const push = TH.scenes.push.bind(TH.scenes);
+  TH.scenes.push = function () {
+    const r = push.apply(null, arguments);
+    try { const top = TH.scenes.top(); if (top && top.constructor.name === 'WorldScene') patchWorld(Object.getPrototypeOf(top)); } catch (e) { /* nada */ }
+    return r;
+  };
+
+  // ---------------- escenas de historia en orden ----------------
+  // Si pisas una escena y en el mismo mapa hay otra anterior que aún no has visto (porque la rodeaste),
+  // primero se juega la que te saltaste y enseguida la que has pisado. Así no hay huecos en la historia
+  // aunque el mapa sea abierto. No se fuerzan las escenas que dependen de un puzle.
+  const opsOf = (sc) => (typeof sc === 'string' ? [{ call: sc }] : Array.isArray(sc) ? sc : []);
+  const inRect = (t, c, r) => { const [x, y, w, h] = t.rect; return c >= x && c < x + w && r >= y && r < y + h; };
+  const chk = MS.checkExits;
+  MS.checkExits = function () {
+    const p = this.leader;
+    if (p.state === 'walk' && !this.trans && TH.scenes.top() === this && !this.inCutscene) {
+      const c = p.x / 16, r = p.y / 16, list = this.map.def.triggers || [];
+      const onExit = (this.map.def.exits || []).some((ex) => inRect(ex, c, r));
+      if (!onExit) {
+        let ti = -1;
+        for (let i = 0; i < list.length; i++) {
+          const t = list[i];
+          if (!inRect(t, c, r) || (t.once && F.get(t.once)) || !test(t.if)) continue;
+          if (t.pz && !(this.puzzle && this.puzzle.expr(t.pz))) continue;
+          ti = i; break;
+        }
+        if (ti > 0) {
+          const T = list[ti];
+          const E = list.slice(0, ti).find((e) => e.once && e.once !== T.once && !e.pz && !F.get(e.once) && test(e.if) && e.chain !== false);
+          if (E) {
+            F.set(E.once);
+            if (T.once) F.set(T.once);
+            TH.cutscene.play(opsOf(E.script).concat(opsOf(T.script)), { skippable: E.skippable !== false, cinematic: !!(E.cinematic || T.cinematic) });
+            return;
+          }
+        }
+      }
+    }
+    return chk.apply(this, arguments);
+  };
+
+  // ---------------- bucle: el aviso de guardar sale cuando el jugador recupera el control ----------------
+  const upd = MS.update;
+  MS.update = function (dt) {
+    const r = upd.apply(this, arguments);
+    if (!pending) return r;
+    if (!TH.game || !TH.game.started || F.get('juego.fin')) { pending = null; return r; }
+    if (this.inCutscene || this.trans || this.battle || TH.scenes.top() !== this) { calmT = 0; return r; }
+    calmT += dt || 1 / 60;
+    if (calmT < 0.8) return r;
+    calmT = 0;
+    pending = null;
+    if (autoOn()) { if (TH.manualSave && TH.manualSave(this)) TH.ui.toast('Partida guardada'); return r; }
+    this.leader.vx = this.leader.vy = 0;
+    TH.cutscene.play(ASK, { skippable: false });
+    return r;
+  };
+})();
+
+</script>
+  <script>/* data/musica-varek.js */
+// «El capitán caído»: tema de combate de Varek (original). Re menor, rápido, bajo en semicorcheas que rebota
+// de octava y una melodía nerviosa y sincopada que sube y cae. Suena en todos los combates contra Varek;
+// en la segunda fase sube medio tono y acelera.
+(function () {
+  'use strict';
+  const TH = window.TH, T = TH.MUSIC_TRACKS, E = TH.data.enemies;
+  if (!T) return;
+  const LEAD = [
+    '24 . 24 27 . 29 . 24 31 - 29 . 27 - 24 -', // Rem: el gancho
+    '22 - 24 . 27 - 26 - 24 - 22 - 19 - 22 -',
+    '20 . 20 24 . 27 . 20 29 - 27 . 24 - 22 -', // Sib
+    '22 - 24 . 26 - 27 - 29 - 31 - 29 - 27 -', // Do: subida
+    '24 . 24 27 . 29 . 24 31 - 32 . 31 - 29 -', // Rem: el gancho, con la nota triste
+    '27 - 29 . 31 - 34 - 36 - - - 34 . 31 .',
+    '32 - 31 - 29 - 27 - 29 - 27 - 24 - 22 -', // Sib: bajada
+    '31 - 29 - 26 - 23 - 19 - 23 - 26 - 29 -', // La: vuelta al principio
+  ].join(' | ');
+  const base = {
+    bpm: 128, root: 50,
+    prog: [[0, 'm'], [0, 'm'], [8, 'M'], [10, 'M'], [0, 'm'], [0, 'm'], [8, 'M'], [7, 'D7']],
+    bass: 'r r o r r o r r r r o r 5 r o r',
+    arp: '0 . 2 . 1 . 2 . 0 . 2 . 3 . 2 .', aw: 'square', av: 0.025,
+    lead: LEAD, lw: 'square', lv: 0.075,
+    drum: 'k-h-s-hkk-h-s-hsk-h-s-hkk-hss-hs', pad: 0.015,
+  };
+  T.capitan = Object.assign({}, base);
+  T.capitan2 = Object.assign({}, base, { root: 51, bpm: 138, lw: 'sawtooth', lv: 0.065, drum: 'kkhskhshkkhskhshkkhskhshk-hsshss' });
+
+  // todos los combates contra Varek (el duelo, la pelea de las Ruinas, Varek Abisal y su reflejo del Espejo)
+  for (const k in E) {
+    const V = E[k];
+    if (!V || V.char !== 'varek' || !V.boss) continue;
+    if (!V.phases || !V.phases.length) V.phases = [{ at: 1 }];
+    V.phases.forEach((ph, i) => { if (ph.music !== 'final') ph.music = i === 0 ? 'capitan' : 'capitan2'; });
+  }
+})();
+
+// «Baile del guardián»: tema de los cinco guardianes de las mazmorras opcionales (original).
+// Fa menor a 160, bajo de «chunda-chunda» saltarín, melodía picada con bajadas cromáticas de broma
+// y un tramo en mayor en mitad del bucle, como un baile que no se toma en serio.
+(function () {
+  'use strict';
+  const TH = window.TH, T = TH.MUSIC_TRACKS, E = TH.data.enemies;
+  if (!T) return;
+  T.guardian = {
+    bpm: 160, root: 53,
+    prog: [[0, 'm'], [0, 'm'], [8, 'M'], [7, 'M'], [3, 'M'], [3, 'M'], [10, 'M'], [7, 'D7']],
+    bass: 'r . o . 5 . o . r . o . 5 . o .',
+    arp: '0 . . 2 . . 1 . 0 . . 2 . 1 . .', aw: 'triangle', av: 0.05,
+    lead: [
+      '24 . 27 . 24 . 31 - 30 . 29 . 27 . 24 .', // Fam: el gancho, con su bajada de broma
+      '22 . 24 . 27 - - . 29 . 27 . 24 - . .',
+      '20 . 24 . 27 . 32 - 31 . 29 . 27 . 24 .', // Reb
+      '23 . 26 . 31 - 30 . 31 . 26 . 23 - . .', // Do
+      '27 - 31 - 34 . 32 . 31 - 27 - 29 . 31 .', // Lab: el tramo luminoso
+      '32 - 31 . 29 . 27 - - . 24 . 27 . 29 .',
+      '29 . 31 . 34 - 36 . 34 . 31 . 29 . 27 .', // Mib
+      '31 . 26 . 23 . 26 . 31 - 30 . 29 . 28 .', // Do: vuelta al principio
+    ].join(' | '),
+    lw: 'square', lv: 0.07,
+    drum: 'k---s-h-k-k-s-h-k---s-h-k-hss-h-', pad: 0.02,
+  };
+  for (const k of ['gargola_reina', 'jardinero_mayor', 'polilla_archivera', 'salamandra_reina', 'heraldo_mayor']) {
+    const V = E[k];
+    if (!V) continue;
+    if (!V.phases || !V.phases.length) V.phases = [{ at: 1 }];
+    for (const ph of V.phases) ph.music = 'guardian';
   }
 })();
 
