@@ -3611,7 +3611,9 @@ void main(){
     const M = H.map, view = a.dir === 'up' ? M.up : a.dir === 'left' ? M.left : a.dir === 'right' ? M.right : M.down;
     let img;
     // golpe al usar un poder en el mapa (si el héroe tiene esa pose)
-    if (M.slam && a.slamT > performance.now()) { const k = M.slam + (a.dir === 'left' ? '@f' : ''); img = H.cache.get('slam|' + k) || (H.cache.set('slam|' + k, compose(H, k, { whole: true })), H.cache.get('slam|' + k)); }
+    // pose fija pedida por una escena (p. ej. Kaelen golpeando el nido de la Madre del Bosque)
+    if (a.poseArt && a.poseT > performance.now() && H.ART[a.poseArt]) { const k = a.poseArt + (a.dir === 'left' ? '@f' : ''); img = H.cache.get('pose|' + k) || (H.cache.set('pose|' + k, compose(H, k, { whole: true })), H.cache.get('pose|' + k)); }
+    else if (M.slam && a.slamT > performance.now()) { const k = M.slam + (a.dir === 'left' ? '@f' : ''); img = H.cache.get('slam|' + k) || (H.cache.set('slam|' + k, compose(H, k, { whole: true })), H.cache.get('slam|' + k)); }
     else {
       // parpadeo: cada personaje a su ritmo, unos 130 ms cada 3–4 s
       if (a.blinkSeed == null) a.blinkSeed = Math.random() * 10;
@@ -9712,7 +9714,7 @@ void main(){
 (function () {
   'use strict';
   const TH = window.TH, U = TH.util, TS = 16, HZ = TH.HZ, W = TH.W, H = TH.H;
-  const OPS = ['despawn', 'scene', 'say', 'narrate', 'choice', 'if', 'set', 'add', 'call', 'end', 'move', 'face', 'place', 'cam', 'zoom', 'fade', 'hour', 'shake', 'wait', 'emote',
+  const OPS = ['despawn', 'pose', 'sfx', 'js', 'scene', 'say', 'narrate', 'choice', 'if', 'set', 'add', 'call', 'end', 'move', 'face', 'place', 'cam', 'zoom', 'fade', 'hour', 'shake', 'wait', 'emote',
     'bars', 'banner', 'toast', 'party', 'dream', 'orb', 'release',
     'give', 'shop', 'inn', 'sleep', 'world', 'heal', 'zone',
     'join', 'leave', 'roster', 'battle', 'refresh', 'warp', 'equip', 'save', 'flash', 'music', 'chapter', 'level', 'clock', 'cine'];
@@ -10097,6 +10099,17 @@ void main(){
           if (h1 < h0 && !c.back) h1 += 24;
           return timed(c.time || 0, (k) => { clk.hour = U.lerp(h0, h1, U.smooth(k)) % 24; TH.lighting.setTime(clk.hour, o.tint); });
         }
+        // pose de combate en el mapa: { pose: 'kaelen', art: 'attack', time: 0.3, hold: true } · art: null la quita
+        case 'pose': {
+          const a = this.actor(c.pose);
+          if (a) {
+            a.poseArt = c.art || null;
+            a.poseT = c.art ? (c.hold ? Infinity : performance.now() + (c.time || 0.4) * 1000) : 0;
+            if (c.dir) a.dir = c.dir;
+          }
+          return c.time ? timed(c.time, () => {}) : null;
+        }
+        case 'sfx': if (TH.sfx) TH.sfx(c.sfx); return null;
         case 'shake': { const s = c.shake; return timed(c.time || 0.5, (k) => { o.shake = k >= 1 ? 0 : s * (1 - k * 0.7); }); }
         case 'emote': {
           const a = this.actor(c.emote);
@@ -23461,6 +23474,222 @@ void main(){
       { say: '@npc', e: 'neutral', t: 'Una mecha bien tejida arde toda la noche sin humo. {p:0.3}Una mala, {p:0.2}te deja a oscuras en mitad de la tormenta.' },
       { say: '@npc', e: 'happy', t: 'Las mías no han fallado nunca. {p:0.3}Bueno, {p:0.2}una vez. {p:0.3}Pero había un gato de por medio.' },
     ];
+  }
+})();
+
+</script>
+  <script>/* data/llegadas.js */
+// Capítulos sin teletransporte: al terminar un capítulo sigues donde estás, con un objetivo que dice adónde ir.
+// La escena que abre el capítulo siguiente arranca cuando LLEGAS a ese sitio, a pie o en barca.
+// · Antes, el final de cada capítulo encadenaba el inicio del siguiente, que te cambiaba de mapa de golpe
+//   (p. ej. de la Ciudad Dorada aparecías en la Biblioteca).
+// · Los inicios con dos partes (salida y llegada) se separan: la salida se juega donde ocurre (el muelle de Bruma,
+//   el muelle de Hondaroca) y la llegada, al entrar en el destino.
+// · Los caminos y puertos que llevan a cada destino se abren al terminar el capítulo anterior.
+(function () {
+  'use strict';
+  const TH = window.TH, D = TH.data, S = D.scripts, F = TH.flags, M = D.maps, W = D.world;
+  const MS = TH.MapScene.prototype;
+
+  // ---------------- 1. los finales ya no encadenan el capítulo siguiente ----------------
+  const NEXT = {
+    1: 'Objetivo: vuelve a Bruma Salada',
+    2: 'Objetivo: zarpa hacia las Ruinas de Thalyria (isla del sur)',
+    3: 'Objetivo: toma el camino del este de las Ruinas hasta la Ciudad Dorada',
+    4: 'Objetivo: vuelve a las Ruinas y sigue el sendero del oeste hasta la Biblioteca',
+    6: 'Objetivo: vuelve al muelle de Hondaroca',
+    7: 'Objetivo: vuelve a la explanada de la Torre del Motor',
+  };
+  // el final de cada capítulo (en el 1 se llama «cap1.final»)
+  const finOf = (n) => [S['cap' + n + '.fin'], S['cap' + n + '.final']].find((E) => Array.isArray(E) && E.some((o) => o && o.call === 'cap' + (n + 1) + '.inicio'));
+  for (let n = 1; n <= 7; n++) {
+    const E = finOf(n);
+    if (!E) continue;
+    const i = E.findIndex((o) => o && o.call === 'cap' + (n + 1) + '.inicio');
+    if (i < 0) continue;
+    if (n === 5) {
+      // capítulo 5 → 6: el temblor del mar ocurre donde estás (la Biblioteca); luego hay que volver a Bruma
+      const ini = S['cap6.inicio'];
+      const say = ini.find((o) => o.say === 'none');
+      E.splice(i, 1,
+        { bars: true },
+        { shake: 5, time: 2.0, wait: false },
+        { say: 'none', t: (say ? say.t : 'La tierra tiembla.').replace('Al morir la voz de Aurelia, la', 'Al amanecer, la') },
+        { flash: 1.0, color: '#d8e0ff' },
+        { set: { 'mar.subido': true, 'isla.norte': true, objetivo: 'cap6' } },
+        { say: 'kaelen', e: 'angry', t: 'Eso ha venido de casa. {p:0.4}De Bruma.' },
+        { bars: false },
+        { toast: 'Objetivo: vuelve a Bruma Salada en barca (desde el muelle de las Ruinas)' });
+    } else {
+      E.splice(i, 1, { toast: NEXT[n] });
+    }
+  }
+
+  // ---------------- 2. los inicios, partidos en «salida» y «llegada» ----------------
+  const clip = (arr, a, b) => arr.slice(a, b == null ? arr.length : b);
+  const idx = (arr, fn, from) => { for (let k = from || 0; k < arr.length; k++) if (fn(arr[k])) return k; return -1; };
+  const warpIdx = (arr, map) => idx(arr, (o) => o && o.warp === map);
+
+  const C = {}; // n → [{ id, map, need, done, ops }]
+  // capítulo 2: la charla del muelle en Bruma y la llegada al bosque
+  {
+    const I = S['cap2.inicio'], w2 = warpIdx(I, 'bosque');
+    const A = clip(I, 0, w2 - 1);  // hasta antes del fundido de la travesía
+    C[2] = [
+      { id: 'cap2.salida', map: 'brumaSalada', need: 'cap1.fin', ops: A.concat([
+        { bars: false }, { cam: 'free', time: 0.6 }, { set: { 'cap2.salida': true, objetivo: 'cap2' } },
+        { toast: 'Objetivo: zarpa desde el muelle de Bruma hacia el Bosque de las Raíces (isla del oeste)' }]) },
+      { id: 'cap2.empezado', map: 'bosque', need: 'cap2.salida', ops: [
+        { set: { objetivo: 'madre', 'cap2.empezado': true } }, { banner: ['Bosque de las Raíces Hundidas', 'Isla del Oeste'] }] },
+    ];
+  }
+  // capítulos 3, 4 y 5: toda la escena ocurre en el destino
+  C[3] = [{ id: 'cap3.empezado', map: 'ruinas', need: 'cap2.fin', ops: S['cap3.inicio'] }];
+  C[4] = [{ id: 'cap4.empezado', map: 'ciudad', need: 'cap3.fin', ops: S['cap4.inicio'] }];
+  C[5] = [{ id: 'cap5.empezado', map: 'biblioteca', need: 'cap4.fin', ops: S['cap5.inicio'] }];
+  // capítulo 6: la llegada a Bruma inundada (el temblor ya pasó al final del 5)
+  {
+    const I = S['cap6.inicio'], w = warpIdx(I, 'brumaInundada');
+    C[6] = [{ id: 'cap6.empezado', map: 'brumaInundada', need: 'cap5.fin', ops: [{ bars: true }, { fade: 1, time: 0.6 },
+      { set: { 'mar.subido': true, 'isla.norte': true, objetivo: 'muelle' } }].concat(clip(I, w)) }];
+  }
+  // capítulo 7: Oslo en el muelle de Hondaroca y la llegada a la aldea de los faroleros
+  {
+    const I = S['cap7.inicio'], w2 = warpIdx(I, 'faroleros');
+    const A = clip(I, 0, w2 - 2); // sin el fundido ni el «set» de la travesía
+    C[7] = [
+      { id: 'cap7.salida', map: 'hondaroca', need: 'cap6.fin', ops: A.concat([
+        { bars: false }, { cam: 'free', time: 0.6 }, { set: { 'cap7.salida': true, 'isla.hundida': true, objetivo: 'faroleros' } },
+        { toast: 'Objetivo: zarpa con Oslo hacia la Aldea de los Faroleros' }]) },
+      { id: 'cap7.aldea', map: 'faroleros', need: 'cap7.salida', ops: [
+        { set: { 'cap7.aldea': true } }, { banner: ['Aldea de los Faroleros', 'A la sombra de la Torre del Motor'] }] },
+    ];
+  }
+  // capítulo 8: en la Torre, donde terminó el 7 (su puerta lleva a la ciudad del pasado)
+  C[8] = [{ id: 'cap8.iniciado', map: 'torre', need: 'cap7.fin', ops: S['cap8.inicio'] }];
+
+  // cada escena marca que ya se jugó (para no repetirla) y quita los «guardar» automáticos
+  const TRIG = [];
+  for (const n in C) for (const t of C[n]) {
+    const ops = t.ops.filter((o) => !(o && o.save === true));
+    TRIG.push(Object.assign({}, t, { n: +n, ops: [{ set: { [t.id]: true } }].concat(ops) }));
+  }
+  // «hecho» = esa escena ya se jugó, o la partida (incluidas las antiguas) ya está más adelante
+  const obj = () => F.get('objetivo') || '';
+  const STARTED = {
+    2: () => F.get('cap2.empezado') || F.get('cap2.fin'),
+    3: () => F.get('cap3.empezado') || F.get('cap3.fin'),
+    4: () => F.get('cap4.fin') || F.get('epoca.ciudad') === 'past' || (obj() && obj() !== 'cap4' && F.get('cap3.fin')),
+    5: () => F.get('cap5.fin') || (F.get('epoca.biblioteca') != null && obj() !== 'cap5'),
+    6: () => F.get('cap6.fin') || (F.get('cap5.fin') && !/^cap[56]$/.test(obj())),
+    7: () => F.get('cap7.fin') || (F.get('cap6.fin') && !/^cap[67]$/.test(obj())),
+    8: () => F.get('cap8.llegada') || F.get('epoca.congelada') != null,
+  };
+  const DONE = {
+    'cap2.salida': () => STARTED[2](),
+    'cap2.empezado': () => STARTED[2](),
+    'cap3.empezado': () => STARTED[3](),
+    'cap4.empezado': () => STARTED[4](),
+    'cap5.empezado': () => STARTED[5](),
+    'cap6.empezado': () => STARTED[6](),
+    'cap7.salida': () => STARTED[7](),
+    'cap7.aldea': () => F.get('cap7.fin') || (F.get('cap6.fin') && !/^(cap6|cap7|faroleros)$/.test(obj())),
+    'cap8.iniciado': () => STARTED[8](),
+  };
+  const done = (t) => F.get(t.id) || (DONE[t.id] ? DONE[t.id]() : false);
+  TH.arrivals = TRIG;
+
+  // la reanudación antigua (que lanzaba el inicio al cargar) ya no hace falta: lo hace la llegada
+  TH.pendingChapter = () => null;
+
+  const upd = MS.update;
+  MS.update = function (dt) {
+    const r = upd.apply(this, arguments);
+    if (!TH.game || !TH.game.started || this.inCutscene || this.trans || TH.scenes.top() !== this) return r;
+    if (this.battle || F.get('juego.fin')) return r;
+    for (const t of TRIG) {
+      if (t.map !== this.mapId || !F.get(t.need) || done(t)) continue;
+      this.leader.vx = this.leader.vy = 0;
+      TH.cutscene.play(t.ops, { cinematic: true });
+      break;
+    }
+    return r;
+  };
+
+  // ---------------- 3. caminos y puertos abiertos a tiempo ----------------
+  if (W) {
+    const port = (id) => W.ports.find((p) => p.id === id);
+    const isl = (id) => W.islands.find((i) => i.id === id);
+    if (port('raices')) port('raices').unlock = 'cap2.salida';
+    if (port('ruinas')) port('ruinas').unlock = 'cap2.fin';
+    // el muelle de Hondaroca y el de la Torre ya se abrían con el capítulo anterior (isla.norte / isla.hundida)
+    for (const [id, fl] of [['oeste', 'cap2.salida'], ['sur', 'cap2.fin']]) {
+      const I = isl(id);
+      if (!I) continue;
+      const base = Object.getOwnPropertyDescriptor(I, 'unlock');
+      const old = base && base.get ? base.get : () => (base ? base.value : null);
+      Object.defineProperty(I, 'unlock', { get: () => (F.get(fl) || F.get('cap2.empezado') ? null : old()), configurable: true });
+    }
+    for (const [map, p, fl] of [['bosque', 'raices', 'cap2.salida'], ['ruinas', 'ruinas', 'cap2.fin']]) {
+      const b = M[map] && (M[map].boats || []).find((x) => x.port === p);
+      if (b) b.if = fl;
+    }
+    // partidas antiguas: quien ya empezó el capítulo 2 o 3 conserva el acceso
+    const old2 = port('raices'), old3 = port('ruinas');
+    if (old2) Object.defineProperty(old2, 'unlock', { get: () => (F.get('cap2.empezado') ? null : 'cap2.salida'), configurable: true });
+    if (old3) Object.defineProperty(old3, 'unlock', { get: () => (F.get('cap3.empezado') ? null : 'cap2.fin'), configurable: true });
+  }
+  // con el mar crecido, el camino de los acantilados a Bruma está bajo el agua: se llega en barca
+  if (M.acantilados) {
+    for (const e of M.acantilados.exits || []) {
+      let to; try { to = e.to; } catch (x) { continue; }
+      if (to !== 'brumaSalada') continue;
+      const cond = e.if;
+      Object.defineProperty(e, 'if', { configurable: true, get: () => (F.get('mar.subido') ? 'mar.bajo' : cond) });
+      e.msg = 'El camino a Bruma está bajo el agua. {p:0.3}Habrá que llegar en barca.';
+    }
+  }
+})();
+
+</script>
+  <script>/* data/secuencias.js */
+// Secuencias con poses de combate en el mapa (op «pose» del motor de escenas).
+// · Capítulo 2: Kaelen corre hasta el nido de raíces y lo parte con la lanza (pose de guardia → golpe, dos veces).
+(function () {
+  'use strict';
+  const TH = window.TH, S = TH.data.scripts;
+  let SOLO = 0;
+
+  const M = S['cap2.madre'];
+  if (M) {
+    const i = M.findIndex((o) => o && o.say === 'firion' && /la lanza/i.test(o.t || ''));
+    const f = i >= 0 ? M.findIndex((o, k) => k > i && o && o.flash) : -1;
+    if (f > 0) {
+      M.splice(f, 1,
+        { say: 'kaelen', e: 'angry', t: '{~¡Aguanta, Elara!~}' },
+        { cam: [21, 5.4], time: 0.6, wait: false },
+        // Kaelen se adelanta solo (el resto del grupo espera atrás, fuera de plano)
+        { js: () => { const m = TH.scenes.registry.map; SOLO = m.count; m.count = 1; } },
+        { move: 'kaelen', path: [[20.2, 5.6], [20.6, 4.6]], run: true },
+        { face: 'kaelen', dir: 'right' },
+        // primer golpe
+        { pose: 'kaelen', art: 'combat', time: 0.45 },
+        { pose: 'kaelen', art: 'attack', hold: true },
+        { sfx: 'hit' },
+        { shake: 3, time: 0.3, wait: false },
+        { flash: 0.25, color: '#bfe0ff' },
+        { wait: 0.25 },
+        { say: 'none', name: 'Madre del Bosque', t: '{~¡Sssh!~} {p:0.3}Las raíces se cierran otra vez sobre ella.' },
+        // segundo golpe, con todo
+        { pose: 'kaelen', art: 'combat', time: 0.6 },
+        { pose: 'kaelen', art: 'attack', hold: true },
+        { sfx: 'break' },
+        { shake: 6, time: 0.6, wait: false },
+        { flash: 0.7, color: '#bfe0ff' },
+        { wait: 0.5 },
+        { pose: 'kaelen', art: null },
+        { js: () => { const m = TH.scenes.registry.map; if (SOLO) { m.count = SOLO; SOLO = 0; m.regroup(); } } });
+    }
   }
 })();
 
