@@ -7111,6 +7111,14 @@ void main(){
       }
       return false;
     }
+    // nadie del grupo (líder o seguidores) dentro de la compuerta
+    partyIn(scene, o) {
+      for (let k = 0; k < scene.count; k++) {
+        const p = scene.party[k];
+        for (let r = o.r; r < o.r + o.h; r++) for (let c = o.c; c < o.c + o.w; c++) if (p.x + 4 > c * TS && p.x - 4 < c * TS + TS && p.y + 1 > r * TS && p.y - 3 < r * TS + TS) return true;
+      }
+      return false;
+    }
     leaderIn(scene, o) {
       const p = scene.leader;
       for (let r = o.r; r < o.r + o.h; r++) for (let c = o.c; c < o.c + o.w; c++) if (p.x + 4 > c * TS && p.x - 4 < c * TS + TS && p.y + 1 > r * TS && p.y - 3 < r * TS + TS) return true;
@@ -7155,13 +7163,15 @@ void main(){
         }
         if (!on && !o.heavy && this.partyOn(scene, o.c, o.r)) on = true;
         o._pressed = on;
+        // una placa con «pulse» mantiene abierta su compuerta temporizada mientras alguien la pisa
+        if (on && o.pulse && this.byId[o.pulse]) { const g = this.byId[o.pulse]; g._t = Math.max(g._t || 0, g.dur || 3); }
         if (on && !was && scene.ready) this.chime(o.c * TS + 8, o.r * TS + 10 - m.hh(o.c, o.r) * HZ, '#ffe070');
       }
       // compuertas temporizadas: no se cierran encima del grupo
       for (const o of this.objs) {
         if (o.type !== 'timedgate') continue;
         if (o._frozen > 0) { o._frozen -= dt; continue; }
-        if (o._t > 0) { o._t -= dt; if (o._t <= 0 && this.leaderIn(scene, o)) o._t = 0.05; }
+        if (o._t > 0) { o._t -= dt; if (o._t <= 0 && this.partyIn(scene, o)) o._t = 0.05; }
       }
       // animaciones
       for (const o of this.objs) {
@@ -12295,13 +12305,16 @@ void main(){
       { rect: [24, 6, 6, 2], once: 'cap5.jefe', if: [NOW, '!jefe.abisal'], script: 'cap5.abisal', cinematic: true },
     ],
     signs: [
-      { c: 22.5, r: 12.4, text: 'Compuerta de arena de la cámara.{p:0.3} Se abre un instante con la palanca de aquí abajo.{p:0.3} Truco: elige antes la Resonancia de Agua de Elara (R), tira de la palanca y, sin moverte, úsala (X/Z) hacia la compuerta para congelarla abierta.' },
+      { c: 22.5, r: 12.4, text: 'Compuerta de arena de la cámara.{p:0.3} Pisa la placa de delante (hay otra al otro lado) y se queda abierta; al bajarte, aún tienes unos segundos para cruzar.{p:0.3} La palanca también la abre un instante' },
     ],
     puzzle: [
       { id: 'palanca', type: 'lever', c: 11, r: 14, epoch: 'past' },
       { id: 'inundacion', type: 'pool', c: 4, r: 9, w: 6, h: 2, level: '!palanca', dry: true, epoch: 'present' },
       { id: 'arena', type: 'timedgate', c: 26, r: 9, w: 2, h: 2, dur: 3, epoch: 'present' },
       { id: 'pulso', type: 'lever', c: 24, r: 13, pulse: 'arena', epoch: 'present' },
+      // placas a los dos lados de la compuerta: mientras alguien las pisa, la compuerta se queda abierta
+      { id: 'placaS', type: 'plate', c: 26, r: 12, pulse: 'arena', epoch: 'present' },
+      { id: 'placaN', type: 'plate', c: 27, r: 8, pulse: 'arena', epoch: 'present' },
       { id: 'sello', type: 'gate', c: 26, r: 9, w: 2, h: 2, open: 'f:nunca', epoch: 'past' },
       { id: 'reloj', type: 'stele', c: 14, r: 19 },
     ],
@@ -22874,6 +22887,8 @@ void main(){
         TH.sfx && TH.sfx('ok');
         self.text(self.center.x - 40, self.center.y - 50, '¡HUIDA!', '#bfe8ff', 2, 1.0);
         // el grupo sale corriendo hacia la izquierda
+        // se guarda dónde estaba cada uno: al volver al mapa, el grupo aparece ahí y no donde acabó la carrera
+        self.fleeFrom = self.active.map((u) => ({ u, x: u.x, y: u.y }));
         for (const u of self.active) if (!u.hidden && TH.party.members[u.id].hp > 0) { u.dir = 'left'; self.pose(u, 'run', 0); }
         let k = 0;
         while (k < 0.7) {
@@ -22898,6 +22913,7 @@ void main(){
   B.fled = function () {
     const m = this.owner, f = this.foe;
     this.state = 'fled';
+    for (const p of this.fleeFrom || []) { p.u.x = p.x; p.u.y = p.y; p.u.dir = 'right'; }
     this.close(false);
     // el enemigo sigue vivo en el mapa y os deja unos segundos de margen
     if (f) { f.alive = true; f.hidden = false; f.state = 'return'; f.alertT = 0; f.alert = 0; }
